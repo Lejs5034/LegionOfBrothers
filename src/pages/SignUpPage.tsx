@@ -87,6 +87,7 @@ const SignUpPage: React.FC = () => {
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: "https://the-legion-of-brothe-f63j.bolt.host/",
           data: {
             username: formData.username
           }
