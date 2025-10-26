@@ -10,13 +10,28 @@ export default function ChatPage() {
   const [selectedChannel, setSelectedChannel] = useState('general');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    console.log('[ChatPage] Checking session...');
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error('[ChatPage] Error getting session:', error);
+        navigate('/sign-in', { replace: true });
+        return;
+      }
+
+      console.log('[ChatPage] Session check result:', !!data.session);
+
       if (!data.session) {
-        navigate('/sign-in');
+        console.log('[ChatPage] No session found, redirecting to sign-in');
+        navigate('/sign-in', { replace: true });
       } else {
+        console.log('[ChatPage] Session valid for user:', data.session.user.email);
         setUserEmail(data.session.user.email || 'user@email.com');
         setReady(true);
       }
+    }).catch((err) => {
+      console.error('[ChatPage] Unexpected error:', err);
+      navigate('/sign-in', { replace: true });
     });
   }, [navigate]);
 

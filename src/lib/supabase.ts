@@ -14,6 +14,16 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: 'legion-auth-token',
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'legion-web-app',
+    },
+  },
+  db: {
+    schema: 'public',
   },
 });
 
