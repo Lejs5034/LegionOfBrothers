@@ -68,13 +68,13 @@ const Community: React.FC = () => {
           transition={{ duration: 0.8 }}
           className="text-center mb-16"
         >
-          <motion.h2 
+          <motion.h2
             className="text-5xl md:text-6xl font-black mb-6 bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 bg-clip-text text-transparent"
             initial={{ scale: 0.8 }}
             animate={inView ? { scale: 1 } : { scale: 0.8 }}
             transition={{ delay: 0.2, duration: 0.6 }}
           >
-            JOIN THE ELITE
+            Join the Brotherhood
           </motion.h2>
           <motion.p 
             className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed"
