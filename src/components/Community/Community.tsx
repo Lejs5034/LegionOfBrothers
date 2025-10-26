@@ -74,7 +74,7 @@ const Community: React.FC = () => {
             animate={inView ? { scale: 1 } : { scale: 0.8 }}
             transition={{ delay: 0.2, duration: 0.6 }}
           >
-            JOIN THE ELITE
+            JOIN THE BROTHERHOOD
           </motion.h2>
           <motion.p 
             className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed"
