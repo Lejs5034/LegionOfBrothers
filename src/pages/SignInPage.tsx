@@ -248,7 +248,7 @@ const SignInPage: React.FC = () => {
                 to="/sign-up"
                 className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors duration-200"
               >
-                Join the Brotherhood
+                Join the Legion
               </Link>
             </p>
           </div>
