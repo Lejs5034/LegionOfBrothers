@@ -71,14 +71,12 @@ const AuthActions: React.FC<AuthActionsProps> = ({ isMobile = false, onClose }) 
     };
   }, []);
 
-  const handleSignOut = async () => {
-    console.log('[AuthActions] Logging out...');
-    await supabase.auth.signOut();
+  const handleSignOut = () => {
+    // TODO: Replace with actual Supabase signOut
     setIsAuthenticated(false);
     setIsDropdownOpen(false);
     if (onClose) onClose();
-    console.log('[AuthActions] Logged out, redirecting to homepage');
-    navigate('/', { replace: true });
+    navigate('/');
   };
 
   const handleNavigation = (path: string) => {

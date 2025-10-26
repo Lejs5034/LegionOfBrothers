@@ -10,8 +10,6 @@ import Contact from './components/Contact/Contact';
 import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
 import DashboardPage from './pages/DashboardPage';
-import ChatPage from './pages/ChatPage';
-import { AuthGuard } from './components/AuthGuard';
 
 const HomePage = () => (
   <>
@@ -28,31 +26,10 @@ function App() {
     <div className="bg-black text-white overflow-x-hidden">
       <SiteNav />
       <Routes>
-        <Route path="/" element={
-          <AuthGuard requireAuth={false} redirectTo="/chat">
-            <HomePage />
-          </AuthGuard>
-        } />
-        <Route path="/sign-up" element={
-          <AuthGuard requireAuth={false} redirectTo="/chat">
-            <SignUpPage />
-          </AuthGuard>
-        } />
-        <Route path="/sign-in" element={
-          <AuthGuard requireAuth={false} redirectTo="/chat">
-            <SignInPage />
-          </AuthGuard>
-        } />
-        <Route path="/dashboard" element={
-          <AuthGuard requireAuth={true}>
-            <DashboardPage />
-          </AuthGuard>
-        } />
-        <Route path="/chat" element={
-          <AuthGuard requireAuth={true}>
-            <ChatPage />
-          </AuthGuard>
-        } />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/sign-up" element={<SignUpPage />} />
+        <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
       </Routes>
     </div>
   );

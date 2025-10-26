@@ -48,7 +48,7 @@ const SignInPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (!validateForm()) {
       return;
     }
@@ -56,57 +56,49 @@ const SignInPage: React.FC = () => {
     setIsLoading(true);
     setErrors({});
 
-    console.log('[Sign In] Starting authentication...');
-    console.log('[Sign In] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
-
-    const timeoutId = setTimeout(() => {
-      console.error('[Sign In] Request timeout - taking longer than 15 seconds');
-      setErrors({ general: 'Request timeout. Please check your connection and try again.' });
-      setIsLoading(false);
-    }, 15000);
-
     try {
-      console.log('[Sign In] Calling Supabase signInWithPassword...');
-      const startTime = Date.now();
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
 
-      const duration = Date.now() - startTime;
-      console.log(`[Sign In] Response received in ${duration}ms`);
-
-      clearTimeout(timeoutId);
-
       if (error) {
-        console.error('[Sign In] Error:', error);
         throw error;
       }
 
-      console.log('[Sign In] Success! Session:', !!data.session);
-      console.log('[Sign In] User:', data.user?.email);
+      if (data.user) {
+        // Verify profile exists, create if missing (edge case)
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
 
-      if (data.session) {
-        console.log('[Sign In] Navigating to /chat...');
-        navigate('/chat', { replace: true });
-      } else {
-        throw new Error('No session created after sign in');
+        if (profileError && profileError.code === 'PGRST116') {
+          // Profile doesn't exist, this shouldn't happen but let's handle it
+          console.warn('Profile missing for authenticated user, creating...');
+          const { error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              username: data.user.email?.split('@')[0] || 'user',
+              role: 'user',
+            });
+          
+          if (createError) {
+            console.error('Failed to create missing profile:', createError);
+          }
+        }
+
+        navigate('/', { replace: true });
       }
     } catch (error: any) {
-      clearTimeout(timeoutId);
-      console.error('[Sign In] Caught error:', error);
-
+      console.error('Sign in error:', error);
+      
       if (error.message?.includes('Invalid login credentials')) {
         setErrors({ general: 'Invalid email or password' });
-      } else if (error.message?.includes('Email not confirmed')) {
-        setErrors({ general: 'Please confirm your email address before signing in' });
-      } else if (error.message?.includes('timeout')) {
-        setErrors({ general: 'Request timeout. Please check your connection and try again.' });
-      } else if (error.name === 'TypeError' && error.message?.includes('fetch')) {
-        setErrors({ general: 'Network error. Please check your internet connection.' });
       } else {
-        setErrors({ general: error.message || 'An error occurred during sign in. Please try again.' });
+        setErrors({ general: error.message || 'An error occurred during sign in' });
       }
     } finally {
       setIsLoading(false);
