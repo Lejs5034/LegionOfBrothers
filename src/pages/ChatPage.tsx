@@ -5,51 +5,26 @@ import { supabase } from '../lib/supabase';
 
 export default function ChatPage() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
   const [userEmail, setUserEmail] = useState<string>('');
   const [selectedChannel, setSelectedChannel] = useState('general');
 
   useEffect(() => {
-    console.log('[ChatPage] Checking session...');
-
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (error) {
-        console.error('[ChatPage] Error getting session:', error);
-        navigate('/sign-in', { replace: true });
-        return;
+    const loadUserData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserEmail(session.user.email || 'user@email.com');
       }
+    };
 
-      console.log('[ChatPage] Session check result:', !!data.session);
-
-      if (!data.session) {
-        console.log('[ChatPage] No session found, redirecting to sign-in');
-        navigate('/sign-in', { replace: true });
-      } else {
-        console.log('[ChatPage] Session valid for user:', data.session.user.email);
-        setUserEmail(data.session.user.email || 'user@email.com');
-        setReady(true);
-      }
-    }).catch((err) => {
-      console.error('[ChatPage] Unexpected error:', err);
-      navigate('/sign-in', { replace: true });
-    });
-  }, [navigate]);
+    loadUserData();
+  }, []);
 
   const handleLogout = async () => {
+    console.log('[ChatPage] Logging out...');
     await supabase.auth.signOut();
-    navigate('/');
+    console.log('[ChatPage] Logged out, redirecting to homepage');
+    navigate('/', { replace: true });
   };
-
-  if (!ready) {
-    return (
-      <div className="grid h-screen place-items-center bg-zinc-950 text-zinc-300">
-        <div className="flex items-center space-x-2">
-          <div className="w-5 h-5 border-2 border-zinc-500 border-t-cyan-400 rounded-full animate-spin" />
-          <span>Loading...</span>
-        </div>
-      </div>
-    );
-  }
 
   const channels = [
     'general',
