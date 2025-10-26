@@ -84,13 +84,13 @@ const SignInPage: React.FC = () => {
               username: data.user.email?.split('@')[0] || 'user',
               role: 'user',
             });
-          
+
           if (createError) {
             console.error('Failed to create missing profile:', createError);
           }
         }
 
-        navigate('/', { replace: true });
+        navigate('/chat', { replace: true });
       }
     } catch (error: any) {
       console.error('Sign in error:', error);

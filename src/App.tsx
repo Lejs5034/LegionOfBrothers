@@ -10,6 +10,7 @@ import Contact from './components/Contact/Contact';
 import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
 import DashboardPage from './pages/DashboardPage';
+import ChatPage from './pages/ChatPage';
 
 const HomePage = () => (
   <>
@@ -30,6 +31,7 @@ function App() {
         <Route path="/sign-up" element={<SignUpPage />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/chat" element={<ChatPage />} />
       </Routes>
     </div>
   );
