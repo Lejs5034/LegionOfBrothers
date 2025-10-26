@@ -168,7 +168,7 @@ const Community: React.FC = () => {
             
             <p className="text-xl text-gray-300 mb-8 leading-relaxed">
               The future belongs to those who master the essential skills today. 
-              Join the Legion and become unstoppable.
+              Join the Brotherhood and become unstoppable.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
@@ -177,7 +177,7 @@ const Community: React.FC = () => {
                 whileTap={{ scale: 0.95 }}
                 className="group relative px-10 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-bold text-lg hover:scale-105 transition-transform duration-300 overflow-hidden"
               >
-                <span className="relative z-10">JOIN THE LEGION</span>
+                <span className="relative z-10">JOIN THE BROTHERHOOD</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </motion.button>
               

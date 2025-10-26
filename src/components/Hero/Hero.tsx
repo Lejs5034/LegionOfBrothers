@@ -79,7 +79,7 @@ const Hero: React.FC = () => {
             transition={{ delay: 1.5 }}
           >
             <button className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-bold text-lg hover:scale-105 transition-transform duration-300 overflow-hidden">
-              <span className="relative z-10">JOIN THE LEGION</span>
+              <span className="relative z-10">JOIN THE BROTHERHOOD</span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </button>
             

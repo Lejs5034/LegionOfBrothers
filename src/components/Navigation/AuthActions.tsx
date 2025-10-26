@@ -95,7 +95,7 @@ const AuthActions: React.FC<AuthActionsProps> = ({ isMobile = false, onClose }) 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                Join the Legion
+                Join the Brotherhood
               </motion.button>
             </Link>
             <Link to="/sign-in" onClick={onClose}>
