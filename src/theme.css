@@ -1,0 +1,138 @@
+:root {
+  --bg: #0b0f1a;
+  --surface: #0f1526;
+  --surface-2: #151b2f;
+  --text: #e6e6f0;
+  --text-muted: #9aa3b2;
+
+  --accent: #6ee7ff;
+  --accent-2: #a855f7;
+  --accent-3: #f472b6;
+  --accent-grad: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 55%, var(--accent-3) 100%);
+
+  --border: rgba(255,255,255,0.06);
+  --divider: rgba(255,255,255,0.05);
+  --shadow: 0 8px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
+
+  --radius: 14px;
+  --radius-sm: 10px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", sans-serif;
+  margin: 0;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.sidebar {
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+}
+
+.channel-item {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.channel-item:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+}
+.channel-item.active {
+  background: rgba(110,231,255,0.12);
+  color: var(--text);
+  outline: 1px solid rgba(110,231,255,0.25);
+}
+
+.server-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.server-icon:hover {
+  border-radius: 12px;
+}
+
+.server-icon.active {
+  border-radius: 12px;
+}
+
+.server-icon.active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  width: 4px;
+  height: 32px;
+  background: var(--text);
+  border-radius: 0 4px 4px 0;
+}
+
+.btn-primary {
+  background: var(--accent-grad);
+  color: #0b0f1a;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  padding: 8px 14px;
+  border: none;
+  cursor: pointer;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--divider), transparent);
+  border: none;
+}
+
+.message {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+.message:hover {
+  background: rgba(255,255,255,0.03);
+}
+.timestamp {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.input-field {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 10px 14px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input-field:focus {
+  border-color: rgba(110,231,255,0.4);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(110,231,255,0.1);
+}
+
+.input-field::placeholder {
+  color: var(--text-muted);
+}
