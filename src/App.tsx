@@ -29,6 +29,7 @@ const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showLoading, setShowLoading] = React.useState(true);
 
   useEffect(() => {
     if (!loading && user && (location.pathname === '/sign-in' || location.pathname === '/sign-up')) {
@@ -36,7 +37,20 @@ const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   }, [user, loading, location.pathname, navigate]);
 
-  if (loading) {
+  useEffect(() => {
+    // Don't show loading spinner indefinitely - max 1 second
+    const timer = setTimeout(() => {
+      setShowLoading(false);
+    }, 1000);
+
+    if (!loading) {
+      setShowLoading(false);
+    }
+
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  if (loading && showLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
