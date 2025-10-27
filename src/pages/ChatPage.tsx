@@ -65,19 +65,26 @@ export default function ChatPage() {
   const loadChannels = useCallback(async () => {
     const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
 
+    console.log('=== Loading Channels ===');
+    console.log('Selected Server:', selectedServer);
+    console.log('Server Slug:', serverSlug);
+
     setLoadingChannels(true);
     setChannelsError('');
 
     try {
+      console.log('Step 1: Fetching server data...');
       const { data: serverData, error: serverError } = await supabase
         .from('servers')
         .select('id')
         .eq('slug', serverSlug)
         .maybeSingle();
 
+      console.log('Server query result:', { serverData, serverError });
+
       if (serverError) {
         console.error('Error loading server:', serverError);
-        setChannelsError('Failed to load server');
+        setChannelsError(`Failed to load server: ${serverError.message}`);
         return;
       }
 
@@ -87,37 +94,53 @@ export default function ChatPage() {
         return;
       }
 
+      console.log('Step 2: Fetching channels for server ID:', serverData.id);
       const { data: channelsData, error: channelsError } = await supabase
         .from('channels')
         .select('*')
         .eq('server_id', serverData.id)
         .order('sort_order');
 
+      console.log('Channels query result:', {
+        channelsData,
+        channelsError,
+        count: channelsData?.length
+      });
+
       if (channelsError) {
         console.error('Error loading channels:', channelsError);
-        setChannelsError('Failed to load channels');
+        setChannelsError(`Failed to load channels: ${channelsError.message}`);
         return;
       }
 
-      console.log('Loaded channels:', channelsData);
-
       if (channelsData && channelsData.length > 0) {
+        console.log('Setting channels:', channelsData);
         setChannels(channelsData);
         setSelectedChannel(channelsData[0]);
       } else {
+        console.warn('No channels found for server');
         setChannels([]);
         setSelectedChannel(null);
       }
     } catch (error) {
       console.error('Unexpected error loading channels:', error);
-      setChannelsError('An unexpected error occurred');
+      setChannelsError(`An unexpected error occurred: ${error}`);
     } finally {
+      console.log('=== Finished Loading Channels ===');
       setLoadingChannels(false);
     }
   }, [selectedServer]);
 
   useEffect(() => {
-    if (!ready) return;
+    console.log('useEffect [ready, selectedServer, loadChannels] triggered', {
+      ready,
+      selectedServer
+    });
+    if (!ready) {
+      console.log('Skipping loadChannels - not ready yet');
+      return;
+    }
+    console.log('Calling loadChannels...');
     loadChannels();
   }, [ready, selectedServer, loadChannels]);
 
