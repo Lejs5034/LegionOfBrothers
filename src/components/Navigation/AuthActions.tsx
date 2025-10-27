@@ -28,7 +28,7 @@ const AuthActions: React.FC<AuthActionsProps> = ({ isMobile = false, onClose }) 
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
         setUserProfile(profile);
       }
     };
@@ -36,16 +36,18 @@ const AuthActions: React.FC<AuthActionsProps> = ({ isMobile = false, onClose }) 
     getInitialSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         setIsAuthenticated(true);
-        // Get user profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        setUserProfile(profile);
+        // Fetch profile asynchronously without blocking
+        (async () => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          setUserProfile(profile);
+        })();
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUserProfile(null);
