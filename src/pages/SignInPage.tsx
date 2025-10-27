@@ -67,34 +67,11 @@ const SignInPage: React.FC = () => {
       }
 
       if (data.user) {
-        // Verify profile exists, create if missing (edge case)
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileError && profileError.code === 'PGRST116') {
-          // Profile doesn't exist, this shouldn't happen but let's handle it
-          console.warn('Profile missing for authenticated user, creating...');
-          const { error: createError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              username: data.user.email?.split('@')[0] || 'user',
-              role: 'user',
-            });
-
-          if (createError) {
-            console.error('Failed to create missing profile:', createError);
-          }
-        }
-
         navigate('/chat', { replace: true });
       }
     } catch (error: any) {
       console.error('Sign in error:', error);
-      
+
       if (error.message?.includes('Invalid login credentials')) {
         setErrors({ general: 'Invalid email or password' });
       } else {
