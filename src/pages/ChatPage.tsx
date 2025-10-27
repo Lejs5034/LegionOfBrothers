@@ -1,21 +1,38 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, LogOut, Dumbbell, TrendingUp, Pencil, Briefcase } from 'lucide-react';
+import { Hash, LogOut, Dumbbell, TrendingUp, Pencil, Briefcase, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const servers = [
-  { id: 'business', name: 'Business Mastery', icon: Briefcase, gradient: '#6ee7ff, #3b82f6' },
-  { id: 'crypto', name: 'Crypto Trading', icon: TrendingUp, gradient: '#34d399, #10b981' },
-  { id: 'copywriting', name: 'Copywriting', icon: Pencil, gradient: '#fb923c, #ef4444' },
-  { id: 'fitness', name: 'Fitness', icon: Dumbbell, gradient: '#f472b6, #ec4899' },
-];
+interface Message {
+  id: string;
+  content: string;
+  user_id: string;
+  channel_id: string;
+  created_at: string;
+  profiles?: {
+    username: string;
+  };
+}
 
-const channelsByServer: Record<string, string[]> = {
-  business: ['general', 'strategies', 'growth', 'networking', 'resources', 'announcements'],
-  crypto: ['general', 'trading-signals', 'market-analysis', 'portfolio', 'news'],
-  copywriting: ['general', 'critiques', 'tips', 'projects', 'resources'],
-  fitness: ['general', 'workouts', 'nutrition', 'progress', 'motivation'],
+interface Channel {
+  id: string;
+  name: string;
+  server_id: string;
+}
+
+const serverSlugs = {
+  business: 'business-mastery',
+  crypto: 'crypto-trading',
+  copywriting: 'copywriting',
+  fitness: 'fitness',
 };
+
+const servers = [
+  { id: 'business', name: 'Business Mastery', icon: Briefcase, gradient: '#6ee7ff, #3b82f6', slug: 'business-mastery' },
+  { id: 'crypto', name: 'Crypto Trading', icon: TrendingUp, gradient: '#34d399, #10b981', slug: 'crypto-trading' },
+  { id: 'copywriting', name: 'Copywriting', icon: Pencil, gradient: '#fb923c, #ef4444', slug: 'copywriting' },
+  { id: 'fitness', name: 'Fitness', icon: Dumbbell, gradient: '#f472b6, #ec4899', slug: 'fitness' },
+];
 
 const getGradientColors = (gradient: string) => gradient;
 
@@ -23,8 +40,13 @@ export default function ChatPage() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [userEmail, setUserEmail] = useState<string>('');
+  const [userId, setUserId] = useState<string>('');
   const [selectedServer, setSelectedServer] = useState('business');
-  const [selectedChannel, setSelectedChannel] = useState('general');
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messageInput, setMessageInput] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -32,10 +54,119 @@ export default function ChatPage() {
         navigate('/sign-in');
       } else {
         setUserEmail(data.session.user.email || 'user@email.com');
+        setUserId(data.session.user.id);
         setReady(true);
       }
     });
   }, [navigate]);
+
+  useEffect(() => {
+    if (!ready) return;
+    loadChannels();
+  }, [ready, selectedServer]);
+
+  useEffect(() => {
+    if (!selectedChannel) return;
+    loadMessages();
+    subscribeToMessages();
+  }, [selectedChannel]);
+
+  const loadChannels = async () => {
+    const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
+
+    const { data: serverData } = await supabase
+      .from('servers')
+      .select('id')
+      .eq('slug', serverSlug)
+      .maybeSingle();
+
+    if (!serverData) return;
+
+    const { data: channelsData } = await supabase
+      .from('channels')
+      .select('*')
+      .eq('server_id', serverData.id)
+      .order('sort_order');
+
+    if (channelsData) {
+      setChannels(channelsData);
+      if (channelsData.length > 0) {
+        setSelectedChannel(channelsData[0]);
+      }
+    }
+  };
+
+  const loadMessages = async () => {
+    if (!selectedChannel) return;
+
+    const { data } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        profiles:user_id (username)
+      `)
+      .eq('channel_id', selectedChannel.id)
+      .order('created_at', { ascending: true });
+
+    if (data) {
+      setMessages(data as Message[]);
+    }
+  };
+
+  const subscribeToMessages = () => {
+    if (!selectedChannel) return;
+
+    const subscription = supabase
+      .channel(`messages:${selectedChannel.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `channel_id=eq.${selectedChannel.id}`,
+        },
+        async (payload) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', payload.new.user_id)
+            .maybeSingle();
+
+          const newMessage = {
+            ...payload.new,
+            profiles: profileData,
+          } as Message;
+
+          setMessages((prev) => [...prev, newMessage]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageInput.trim() || !selectedChannel || loading) return;
+
+    setLoading(true);
+    try {
+      await supabase.from('messages').insert({
+        channel_id: selectedChannel.id,
+        user_id: userId,
+        content: messageInput.trim(),
+      });
+
+      setMessageInput('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -44,14 +175,15 @@ export default function ChatPage() {
 
   const handleServerChange = (serverId: string) => {
     setSelectedServer(serverId);
-    setSelectedChannel('general');
+    setMessages([]);
+    setSelectedChannel(null);
   };
 
   if (!ready) {
     return (
-      <div className="grid h-screen place-items-center bg-zinc-950 text-zinc-300">
+      <div className="grid h-screen place-items-center" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
         <div className="flex items-center space-x-2">
-          <div className="w-5 h-5 border-2 border-zinc-500 border-t-cyan-400 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-t-2 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
           <span>Loading...</span>
         </div>
       </div>
@@ -59,7 +191,6 @@ export default function ChatPage() {
   }
 
   const currentServer = servers.find(s => s.id === selectedServer);
-  const channels = channelsByServer[selectedServer];
 
   return (
     <div className="h-screen grid grid-cols-[72px_240px_1fr]" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
@@ -97,12 +228,12 @@ export default function ChatPage() {
           </div>
           {channels.map((channel) => (
             <div
-              key={channel}
+              key={channel.id}
               onClick={() => setSelectedChannel(channel)}
-              className={`channel-item flex items-center space-x-2 ${selectedChannel === channel ? 'active' : ''}`}
+              className={`channel-item flex items-center space-x-2 ${selectedChannel?.id === channel.id ? 'active' : ''}`}
             >
               <Hash size={18} />
-              <span className="capitalize">{channel}</span>
+              <span className="capitalize">{channel.name}</span>
             </div>
           ))}
         </nav>
@@ -135,28 +266,64 @@ export default function ChatPage() {
       <main className="grid grid-rows-[auto_1fr_auto]">
         <div className="px-6 py-4 flex items-center space-x-2" style={{ borderBottom: '1px solid var(--border)' }}>
           <Hash size={20} style={{ color: 'var(--text-muted)' }} />
-          <h2 className="font-semibold text-lg capitalize" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>{selectedChannel}</h2>
+          <h2 className="font-semibold text-lg capitalize" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+            {selectedChannel?.name || 'Select a channel'}
+          </h2>
         </div>
 
-        <div className="p-6 overflow-auto">
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-            <div className="size-16 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-              <Hash size={32} style={{ color: 'var(--text-muted)' }} />
+        <div className="p-6 overflow-auto flex flex-col gap-3">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+              <div className="size-16 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                <Hash size={32} style={{ color: 'var(--text-muted)' }} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Welcome to #{selectedChannel?.name}</h3>
+                <p style={{ color: 'var(--text-muted)' }}>
+                  No messages yet. Be the first to start the conversation!
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Welcome to #{selectedChannel}</h3>
-              <p style={{ color: 'var(--text-muted)' }}>
-                No messages yet. Be the first to start the conversation!
-              </p>
-            </div>
-          </div>
+          ) : (
+            messages.map((message) => (
+              <div key={message.id} className="message flex gap-3">
+                <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
+                  {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-semibold" style={{ color: 'var(--text)' }}>
+                      {message.profiles?.username || 'Unknown'}
+                    </span>
+                    <span className="timestamp">
+                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p style={{ color: 'var(--text)' }}>{message.content}</p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="p-4" style={{ borderTop: '1px solid var(--border)' }}>
-          <input
-            className="input-field w-full"
-            placeholder={`Message #${selectedChannel}`}
-          />
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <input
+              className="input-field flex-1"
+              placeholder={`Message #${selectedChannel?.name || 'channel'}`}
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              disabled={!selectedChannel || loading}
+            />
+            <button
+              type="submit"
+              disabled={!messageInput.trim() || !selectedChannel || loading}
+              className="btn-primary flex items-center gap-2"
+              style={{ opacity: (!messageInput.trim() || !selectedChannel || loading) ? 0.5 : 1 }}
+            >
+              <Send size={18} />
+            </button>
+          </form>
         </div>
       </main>
     </div>
