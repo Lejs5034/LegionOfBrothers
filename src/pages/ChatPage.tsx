@@ -1,12 +1,27 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, LogOut } from 'lucide-react';
+import { Hash, LogOut, Dumbbell, TrendingUp, Pencil, Briefcase } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+const servers = [
+  { id: 'business', name: 'Business Mastery', icon: Briefcase, gradient: 'from-cyan-400 to-blue-500' },
+  { id: 'crypto', name: 'Crypto Trading', icon: TrendingUp, gradient: 'from-green-400 to-emerald-500' },
+  { id: 'copywriting', name: 'Copywriting', icon: Pencil, gradient: 'from-orange-400 to-red-500' },
+  { id: 'fitness', name: 'Fitness', icon: Dumbbell, gradient: 'from-pink-400 to-rose-500' },
+];
+
+const channelsByServer: Record<string, string[]> = {
+  business: ['general', 'strategies', 'growth', 'networking', 'resources', 'announcements'],
+  crypto: ['general', 'trading-signals', 'market-analysis', 'portfolio', 'news'],
+  copywriting: ['general', 'critiques', 'tips', 'projects', 'resources'],
+  fitness: ['general', 'workouts', 'nutrition', 'progress', 'motivation'],
+};
 
 export default function ChatPage() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [userEmail, setUserEmail] = useState<string>('');
+  const [selectedServer, setSelectedServer] = useState('business');
   const [selectedChannel, setSelectedChannel] = useState('general');
 
   useEffect(() => {
@@ -25,6 +40,11 @@ export default function ChatPage() {
     navigate('/');
   };
 
+  const handleServerChange = (serverId: string) => {
+    setSelectedServer(serverId);
+    setSelectedChannel('general');
+  };
+
   if (!ready) {
     return (
       <div className="grid h-screen place-items-center bg-zinc-950 text-zinc-300">
@@ -36,22 +56,43 @@ export default function ChatPage() {
     );
   }
 
-  const channels = [
-    'general',
-    'strategies',
-    'growth',
-    'networking',
-    'resources',
-    'announcements',
-  ];
+  const currentServer = servers.find(s => s.id === selectedServer);
+  const channels = channelsByServer[selectedServer];
 
   return (
-    <div className="h-screen grid grid-cols-[240px_1fr] bg-zinc-950 text-zinc-200">
-      {/* Sidebar */}
+    <div className="h-screen grid grid-cols-[72px_240px_1fr] bg-zinc-950 text-zinc-200">
+      {/* Server List */}
+      <aside className="bg-zinc-900 border-r border-zinc-800 flex flex-col items-center py-3 gap-2">
+        {servers.map((server) => {
+          const Icon = server.icon;
+          const isActive = selectedServer === server.id;
+          return (
+            <button
+              key={server.id}
+              onClick={() => handleServerChange(server.id)}
+              className={`group relative size-12 rounded-2xl flex items-center justify-center transition-all duration-200 ${
+                isActive
+                  ? 'rounded-xl'
+                  : 'hover:rounded-xl bg-zinc-800 hover:bg-zinc-700'
+              }`}
+              title={server.name}
+            >
+              <div className={`size-full rounded-2xl ${isActive ? 'rounded-xl' : 'group-hover:rounded-xl'} bg-gradient-to-br ${server.gradient} flex items-center justify-center`}>
+                <Icon size={24} className="text-white" />
+              </div>
+              {isActive && (
+                <div className="absolute left-0 w-1 h-8 bg-white rounded-r-full" />
+              )}
+            </button>
+          );
+        })}
+      </aside>
+
+      {/* Channel Sidebar */}
       <aside className="border-r border-zinc-800 flex flex-col">
         <div className="p-4 border-b border-zinc-800">
-          <h1 className="font-bold text-lg bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-            Business Mastery
+          <h1 className={`font-bold text-lg bg-gradient-to-r ${currentServer?.gradient} bg-clip-text text-transparent`}>
+            {currentServer?.name}
           </h1>
           <p className="text-xs text-zinc-500 mt-1">The Legion Community</p>
         </div>
