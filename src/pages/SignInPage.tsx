@@ -90,7 +90,7 @@ const SignInPage: React.FC = () => {
           }
         }
 
-        navigate('/', { replace: true });
+        navigate('/app', { replace: true });
       }
     } catch (error: any) {
       console.error('Sign in error:', error);

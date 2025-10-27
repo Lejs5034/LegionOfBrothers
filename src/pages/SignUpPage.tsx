@@ -100,10 +100,8 @@ const SignUpPage: React.FC = () => {
 
       if (authData.user) {
         if (authData.session) {
-          // User is immediately authenticated (email confirmation disabled)
-          navigate('/dashboard', { replace: true });
+          navigate('/app', { replace: true });
         } else {
-          // Email confirmation required
           setSuccess(true);
         }
       } else {
