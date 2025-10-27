@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Settings, LogOut, Crown, MessageCircle } from 'lucide-react';
+import { User, Settings, LogOut, Crown } from 'lucide-react';
 import { supabase, getCurrentUser, getUserProfile } from '../lib/supabase';
 import type { Profile } from '../types/database';
-import ChatPanel from '../components/Chat/ChatPanel';
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -85,32 +83,6 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-purple-900/20 pt-20 px-4">
-      <div className="fixed top-4 right-4 z-30 flex items-center space-x-3">
-        <motion.button
-          onClick={() => setIsChatOpen(prev => !prev)}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="p-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full text-white shadow-lg hover:shadow-cyan-500/50 transition-all duration-300"
-          title="Toggle Chat"
-        >
-          <MessageCircle size={24} />
-        </motion.button>
-
-        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 flex items-center justify-center shadow-lg">
-          {profile?.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={profile.username}
-              className="w-12 h-12 rounded-full object-cover"
-            />
-          ) : (
-            <User size={24} className="text-white" />
-          )}
-        </div>
-      </div>
-
-      <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
-
       <div className="max-w-6xl mx-auto">
         {/* Welcome Header */}
         <motion.div
