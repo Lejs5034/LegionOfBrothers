@@ -65,22 +65,15 @@ export default function ChatPage() {
   const loadChannels = useCallback(async () => {
     const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
 
-    console.log('=== Loading Channels ===');
-    console.log('Selected Server:', selectedServer);
-    console.log('Server Slug:', serverSlug);
-
     setLoadingChannels(true);
     setChannelsError('');
 
     try {
-      console.log('Step 1: Fetching server data...');
       const { data: serverData, error: serverError } = await supabase
         .from('servers')
         .select('id')
         .eq('slug', serverSlug)
         .maybeSingle();
-
-      console.log('Server query result:', { serverData, serverError });
 
       if (serverError) {
         console.error('Error loading server:', serverError);
@@ -94,18 +87,11 @@ export default function ChatPage() {
         return;
       }
 
-      console.log('Step 2: Fetching channels for server ID:', serverData.id);
       const { data: channelsData, error: channelsError } = await supabase
         .from('channels')
         .select('*')
         .eq('server_id', serverData.id)
         .order('sort_order');
-
-      console.log('Channels query result:', {
-        channelsData,
-        channelsError,
-        count: channelsData?.length
-      });
 
       if (channelsError) {
         console.error('Error loading channels:', channelsError);
@@ -114,11 +100,9 @@ export default function ChatPage() {
       }
 
       if (channelsData && channelsData.length > 0) {
-        console.log('Setting channels:', channelsData);
         setChannels(channelsData);
         setSelectedChannel(channelsData[0]);
       } else {
-        console.warn('No channels found for server');
         setChannels([]);
         setSelectedChannel(null);
       }
@@ -126,21 +110,12 @@ export default function ChatPage() {
       console.error('Unexpected error loading channels:', error);
       setChannelsError(`An unexpected error occurred: ${error}`);
     } finally {
-      console.log('=== Finished Loading Channels ===');
       setLoadingChannels(false);
     }
   }, [selectedServer]);
 
   useEffect(() => {
-    console.log('useEffect [ready, selectedServer, loadChannels] triggered', {
-      ready,
-      selectedServer
-    });
-    if (!ready) {
-      console.log('Skipping loadChannels - not ready yet');
-      return;
-    }
-    console.log('Calling loadChannels...');
+    if (!ready) return;
     loadChannels();
   }, [ready, selectedServer, loadChannels]);
 
