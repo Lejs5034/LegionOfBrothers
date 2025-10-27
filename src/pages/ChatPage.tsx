@@ -47,6 +47,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingChannels, setLoadingChannels] = useState(false);
+  const [channelsError, setChannelsError] = useState<string>('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -63,40 +65,54 @@ export default function ChatPage() {
   const loadChannels = useCallback(async () => {
     const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
 
-    const { data: serverData, error: serverError } = await supabase
-      .from('servers')
-      .select('id')
-      .eq('slug', serverSlug)
-      .maybeSingle();
+    setLoadingChannels(true);
+    setChannelsError('');
 
-    if (serverError) {
-      console.error('Error loading server:', serverError);
-      return;
-    }
+    try {
+      const { data: serverData, error: serverError } = await supabase
+        .from('servers')
+        .select('id')
+        .eq('slug', serverSlug)
+        .maybeSingle();
 
-    if (!serverData) {
-      console.error('Server not found:', serverSlug);
-      return;
-    }
-
-    const { data: channelsData, error: channelsError } = await supabase
-      .from('channels')
-      .select('*')
-      .eq('server_id', serverData.id)
-      .order('sort_order');
-
-    if (channelsError) {
-      console.error('Error loading channels:', channelsError);
-      return;
-    }
-
-    console.log('Loaded channels:', channelsData);
-
-    if (channelsData) {
-      setChannels(channelsData);
-      if (channelsData.length > 0) {
-        setSelectedChannel(channelsData[0]);
+      if (serverError) {
+        console.error('Error loading server:', serverError);
+        setChannelsError('Failed to load server');
+        return;
       }
+
+      if (!serverData) {
+        console.error('Server not found:', serverSlug);
+        setChannelsError('Server not found');
+        return;
+      }
+
+      const { data: channelsData, error: channelsError } = await supabase
+        .from('channels')
+        .select('*')
+        .eq('server_id', serverData.id)
+        .order('sort_order');
+
+      if (channelsError) {
+        console.error('Error loading channels:', channelsError);
+        setChannelsError('Failed to load channels');
+        return;
+      }
+
+      console.log('Loaded channels:', channelsData);
+
+      if (channelsData && channelsData.length > 0) {
+        setChannels(channelsData);
+        setSelectedChannel(channelsData[0]);
+      } else {
+        setChannels([]);
+        setSelectedChannel(null);
+      }
+    } catch (error) {
+      console.error('Unexpected error loading channels:', error);
+      setChannelsError('An unexpected error occurred');
+    } finally {
+      setLoadingChannels(false);
     }
   }, [selectedServer]);
 
@@ -242,16 +258,30 @@ export default function ChatPage() {
           <div className="text-xs font-semibold px-3 py-2 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             Channels
           </div>
-          {channels.map((channel) => (
-            <div
-              key={channel.id}
-              onClick={() => setSelectedChannel(channel)}
-              className={`channel-item flex items-center space-x-2 ${selectedChannel?.id === channel.id ? 'active' : ''}`}
-            >
-              <Hash size={18} />
-              <span className="capitalize">{channel.name}</span>
+          {loadingChannels ? (
+            <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+              Loading channels...
             </div>
-          ))}
+          ) : channelsError ? (
+            <div className="px-3 py-2 text-sm" style={{ color: '#ef4444' }}>
+              {channelsError}
+            </div>
+          ) : channels.length === 0 ? (
+            <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+              No channels available
+            </div>
+          ) : (
+            channels.map((channel) => (
+              <div
+                key={channel.id}
+                onClick={() => setSelectedChannel(channel)}
+                className={`channel-item flex items-center space-x-2 ${selectedChannel?.id === channel.id ? 'active' : ''}`}
+              >
+                <Hash size={18} />
+                <span className="capitalize">{channel.name}</span>
+              </div>
+            ))
+          )}
         </nav>
 
         <div className="mt-auto p-3 flex items-center gap-3" style={{ borderTop: '1px solid var(--border)' }}>
