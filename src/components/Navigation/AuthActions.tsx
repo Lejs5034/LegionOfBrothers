@@ -71,9 +71,10 @@ const AuthActions: React.FC<AuthActionsProps> = ({ isMobile = false, onClose }) 
     };
   }, []);
 
-  const handleSignOut = () => {
-    // TODO: Replace with actual Supabase signOut
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
+    setUserProfile(null);
     setIsDropdownOpen(false);
     if (onClose) onClose();
     navigate('/');
@@ -89,22 +90,22 @@ const AuthActions: React.FC<AuthActionsProps> = ({ isMobile = false, onClose }) 
       <div className="space-y-3">
         {!isAuthenticated ? (
           <>
-            <Link to="/sign-up" onClick={onClose}>
-              <motion.button
-                className="w-full py-3 px-4 rounded-2xl font-semibold bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-lg hover:opacity-90 transition-opacity duration-200"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Join the Legion
-              </motion.button>
-            </Link>
             <Link to="/sign-in" onClick={onClose}>
               <motion.button
-                className="w-full py-3 px-4 rounded-2xl font-semibold border border-violet-500/40 text-violet-400 hover:bg-violet-500/10 transition-all duration-200"
+                className="w-full py-3 px-4 rounded-xl font-semibold border border-white/20 text-white hover:bg-white/10 transition-all duration-200"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
                 Login
+              </motion.button>
+            </Link>
+            <Link to="/sign-up" onClick={onClose}>
+              <motion.button
+                className="w-full py-3 px-4 rounded-xl font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg hover:opacity-90 transition-opacity duration-200"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Join
               </motion.button>
             </Link>
           </>
@@ -141,22 +142,22 @@ const AuthActions: React.FC<AuthActionsProps> = ({ isMobile = false, onClose }) 
     <div className="flex items-center space-x-4">
       {!isAuthenticated ? (
         <>
-          <Link to="/sign-up">
-            <motion.button
-              className="rounded-2xl px-6 py-2 font-semibold bg-gradient-to-r from-violet-500 to-indigo-500 text-white shadow-lg hover:opacity-90 transition-opacity duration-200"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Join
-            </motion.button>
-          </Link>
           <Link to="/sign-in">
             <motion.button
-              className="rounded-2xl px-6 py-2 font-semibold border border-violet-500/40 text-violet-400 hover:bg-violet-500/10 transition-all duration-200"
+              className="rounded-xl px-6 py-2 font-semibold border border-white/20 text-white hover:bg-white/10 transition-all duration-200"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               Login
+            </motion.button>
+          </Link>
+          <Link to="/sign-up">
+            <motion.button
+              className="rounded-xl px-6 py-2 font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg hover:opacity-90 transition-opacity duration-200"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Join
             </motion.button>
           </Link>
         </>
