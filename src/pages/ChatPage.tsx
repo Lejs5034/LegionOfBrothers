@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hash, LogOut, Dumbbell, TrendingUp, Pencil, Briefcase, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -60,33 +60,37 @@ export default function ChatPage() {
     });
   }, [navigate]);
 
-  useEffect(() => {
-    if (!ready) return;
-    loadChannels();
-  }, [ready, selectedServer]);
-
-  useEffect(() => {
-    if (!selectedChannel) return;
-    loadMessages();
-    subscribeToMessages();
-  }, [selectedChannel]);
-
-  const loadChannels = async () => {
+  const loadChannels = useCallback(async () => {
     const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
 
-    const { data: serverData } = await supabase
+    const { data: serverData, error: serverError } = await supabase
       .from('servers')
       .select('id')
       .eq('slug', serverSlug)
       .maybeSingle();
 
-    if (!serverData) return;
+    if (serverError) {
+      console.error('Error loading server:', serverError);
+      return;
+    }
 
-    const { data: channelsData } = await supabase
+    if (!serverData) {
+      console.error('Server not found:', serverSlug);
+      return;
+    }
+
+    const { data: channelsData, error: channelsError } = await supabase
       .from('channels')
       .select('*')
       .eq('server_id', serverData.id)
       .order('sort_order');
+
+    if (channelsError) {
+      console.error('Error loading channels:', channelsError);
+      return;
+    }
+
+    console.log('Loaded channels:', channelsData);
 
     if (channelsData) {
       setChannels(channelsData);
@@ -94,9 +98,14 @@ export default function ChatPage() {
         setSelectedChannel(channelsData[0]);
       }
     }
-  };
+  }, [selectedServer]);
 
-  const loadMessages = async () => {
+  useEffect(() => {
+    if (!ready) return;
+    loadChannels();
+  }, [ready, selectedServer, loadChannels]);
+
+  const loadMessages = useCallback(async () => {
     if (!selectedChannel) return;
 
     const { data } = await supabase
@@ -111,9 +120,9 @@ export default function ChatPage() {
     if (data) {
       setMessages(data as Message[]);
     }
-  };
+  }, [selectedChannel]);
 
-  const subscribeToMessages = () => {
+  const subscribeToMessages = useCallback(() => {
     if (!selectedChannel) return;
 
     const subscription = supabase
@@ -146,7 +155,14 @@ export default function ChatPage() {
     return () => {
       subscription.unsubscribe();
     };
-  };
+  }, [selectedChannel]);
+
+  useEffect(() => {
+    if (!selectedChannel) return;
+    loadMessages();
+    const unsubscribe = subscribeToMessages();
+    return unsubscribe;
+  }, [selectedChannel, loadMessages, subscribeToMessages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
