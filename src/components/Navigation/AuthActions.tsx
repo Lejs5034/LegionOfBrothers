@@ -160,71 +160,7 @@ const AuthActions: React.FC<AuthActionsProps> = ({ isMobile = false, onClose }) 
             </motion.button>
           </Link>
         </>
-      ) : (
-        <div className="relative" ref={dropdownRef}>
-          <motion.button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center space-x-2 p-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-600/20 border border-cyan-500/30 hover:border-cyan-500/50 transition-all duration-200"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 flex items-center justify-center">
-              {userProfile?.avatar_url ? (
-                <img 
-                  src={userProfile.avatar_url} 
-                  alt={userProfile.username}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              ) : (
-                <User className="h-4 w-4 text-white" />
-              )}
-            </div>
-            {userProfile?.username && (
-              <span className="text-sm text-gray-300 hidden sm:block">
-                {userProfile.username}
-              </span>
-            )}
-            <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
-          </motion.button>
-
-          <AnimatePresence>
-            {isDropdownOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                className="absolute right-0 mt-2 w-48 bg-gray-900/95 backdrop-blur-md rounded-xl border border-gray-800/50 shadow-xl overflow-hidden"
-              >
-                <div className="py-2">
-                  <button
-                    onClick={() => handleNavigation('/dashboard')}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-gray-300 hover:text-white hover:bg-gray-800/50 transition-all duration-200"
-                  >
-                    <User className="h-4 w-4" />
-                    <span>Dashboard</span>
-                  </button>
-                  <button
-                    onClick={() => handleNavigation('/profile')}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-gray-300 hover:text-white hover:bg-gray-800/50 transition-all duration-200"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>Profile</span>
-                  </button>
-                  <div className="border-t border-gray-800/50 my-1" />
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 };
