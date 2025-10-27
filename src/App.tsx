@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import SiteNav from './components/Navigation/SiteNav';
 import Hero from './components/Hero/Hero';
 import Skills from './components/Skills/Skills';
@@ -23,9 +23,13 @@ const HomePage = () => (
   </>
 );
 function App() {
+  const location = useLocation();
+  const hiddenNavRoutes = ['/chat'];
+  const showNav = !hiddenNavRoutes.includes(location.pathname);
+
   return (
     <div className="bg-black text-white overflow-x-hidden">
-      <SiteNav />
+      {showNav && <SiteNav />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/sign-up" element={<SignUpPage />} />
