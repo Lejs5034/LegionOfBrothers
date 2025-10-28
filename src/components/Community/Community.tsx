@@ -1,13 +1,49 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { Users2, Flame, Crown, Zap } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 const Community: React.FC = () => {
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
   });
+
+  const [memberCount, setMemberCount] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchMemberCount = async () => {
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      if (!error && count !== null) {
+        setMemberCount(count);
+      }
+    };
+
+    fetchMemberCount();
+
+    const channel = supabase
+      .channel('profiles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'profiles',
+        },
+        () => {
+          setMemberCount((prev) => prev + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const stats = [
     {
@@ -104,7 +140,7 @@ const Community: React.FC = () => {
               <Users2 size={64} />
             </div>
             <div className="text-7xl md:text-8xl font-black mb-4 bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
-              10K+
+              {memberCount.toLocaleString()}+
             </div>
             <div className="text-2xl md:text-3xl text-gray-400 font-medium group-hover:text-gray-300 transition-colors duration-300">
               Elite Members
