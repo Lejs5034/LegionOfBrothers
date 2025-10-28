@@ -88,8 +88,11 @@ const Hero: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </button>
             
-            <button className="px-8 py-4 border-2 border-cyan-400 text-cyan-400 rounded-full font-bold text-lg hover:bg-cyan-400 hover:text-black transition-all duration-300 hover:shadow-lg hover:shadow-cyan-400/25">
-              BECOME AN INSTRUCTOR
+            <button
+              onClick={() => navigate('/sign-in')}
+              className="px-8 py-4 border-2 border-cyan-400 text-cyan-400 rounded-full font-bold text-lg hover:bg-cyan-400 hover:text-black transition-all duration-300 hover:shadow-lg hover:shadow-cyan-400/25"
+            >
+              SIGN IN
             </button>
           </motion.div>
         </motion.div>
