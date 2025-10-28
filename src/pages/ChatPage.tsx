@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -54,6 +54,7 @@ export default function ChatPage() {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [updateLoading, setUpdateLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -207,6 +208,14 @@ export default function ChatPage() {
     const unsubscribe = subscribeToMessages();
     return unsubscribe;
   }, [selectedChannel, loadMessages, subscribeToMessages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -661,6 +670,7 @@ export default function ChatPage() {
               </div>
             ))
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="p-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
