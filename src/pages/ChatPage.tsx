@@ -377,10 +377,10 @@ export default function ChatPage() {
 
         <div className="mt-auto p-3 flex items-center gap-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
           <div className="size-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: 'var(--accent-grad)' }}>
-            {userEmail.charAt(0).toUpperCase()}
+            {username.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 overflow-hidden">
-            <div className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{userEmail.split('@')[0]}</div>
+            <div className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{username || userEmail.split('@')[0]}</div>
             <div className="flex items-center space-x-1">
               <div className="size-2 rounded-full" style={{ background: '#10b981' }} />
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Online</div>
