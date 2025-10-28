@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X } from 'lucide-react';
+import { Hash, LogOut, Dumbbell, TrendingUp, Pencil, Briefcase, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Message {
@@ -49,7 +49,6 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [channelsError, setChannelsError] = useState<string>('');
-  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -317,74 +316,17 @@ export default function ChatPage() {
             </div>
           </div>
           <button
-            onClick={() => setShowSettings(true)}
+            onClick={handleLogout}
             className="p-1 transition-colors duration-200"
             style={{ color: 'var(--text-muted)' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
             onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-            title="Settings"
+            title="Logout"
           >
-            <Settings size={18} />
+            <LogOut size={18} />
           </button>
         </div>
       </aside>
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.7)' }} onClick={() => setShowSettings(false)}>
-          <div className="w-full max-w-2xl mx-4 rounded-lg shadow-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid var(--border)' }}>
-              <h2 className="text-2xl font-bold" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
-                Settings
-              </h2>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="p-2 rounded-lg transition-colors duration-200"
-                style={{ color: 'var(--text-muted)' }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Account Section */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>Account</h3>
-                <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="size-16 rounded-full flex items-center justify-center text-white font-bold text-xl" style={{ background: 'var(--accent-grad)' }}>
-                      {userEmail.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{userEmail.split('@')[0]}</div>
-                      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{userEmail}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions Section */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>Actions</h3>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200"
-                  style={{ background: '#ef4444', color: 'white' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
-                >
-                  <LogOut size={20} />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Chat section */}
       <main className="grid grid-rows-[auto_1fr_auto]">
