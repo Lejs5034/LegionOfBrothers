@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Message {
@@ -50,14 +50,29 @@ export default function ChatPage() {
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [channelsError, setChannelsError] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
+  const [username, setUsername] = useState<string>('');
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [updateLoading, setUpdateLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) {
         navigate('/sign-in');
       } else {
         setUserEmail(data.session.user.email || 'user@email.com');
         setUserId(data.session.user.id);
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', data.session.user.id)
+          .maybeSingle();
+
+        if (profile) {
+          setUsername(profile.username);
+        }
+
         setReady(true);
       }
     });
@@ -232,6 +247,61 @@ export default function ChatPage() {
     setSelectedChannel(null);
   };
 
+  const handleEditField = (field: string, currentValue: string) => {
+    setEditingField(field);
+    setEditValue(currentValue);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingField || updateLoading) return;
+
+    setUpdateLoading(true);
+    try {
+      if (editingField === 'username') {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ username: editValue })
+          .eq('id', userId);
+
+        if (error) {
+          alert(`Failed to update username: ${error.message}`);
+        } else {
+          setUsername(editValue);
+          setEditingField(null);
+        }
+      } else if (editingField === 'email') {
+        const { error } = await supabase.auth.updateUser({ email: editValue });
+
+        if (error) {
+          alert(`Failed to update email: ${error.message}`);
+        } else {
+          alert('Confirmation email sent. Please check your inbox.');
+          setEditingField(null);
+        }
+      } else if (editingField === 'password') {
+        const { error } = await supabase.auth.updateUser({ password: editValue });
+
+        if (error) {
+          alert(`Failed to update password: ${error.message}`);
+        } else {
+          alert('Password updated successfully.');
+          setEditingField(null);
+          setEditValue('');
+        }
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('An unexpected error occurred');
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
   if (!ready) {
     return (
       <div className="grid h-screen place-items-center" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
@@ -351,25 +421,188 @@ export default function ChatPage() {
 
             {/* Content */}
             <div className="p-6 space-y-6">
-              {/* Account Section */}
+              {/* Profile Header */}
+              <div className="flex items-center gap-4 pb-6" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="size-20 rounded-full flex items-center justify-center text-white font-bold text-2xl" style={{ background: 'var(--accent-grad)' }}>
+                  {username.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="text-xl font-bold" style={{ color: 'var(--text)' }}>{username || userEmail.split('@')[0]}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="size-2 rounded-full" style={{ background: '#10b981' }} />
+                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Online</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Profile Information */}
               <div>
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>Account</h3>
-                <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="size-16 rounded-full flex items-center justify-center text-white font-bold text-xl" style={{ background: 'var(--accent-grad)' }}>
-                      {userEmail.charAt(0).toUpperCase()}
+                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>Profile Information</h3>
+                <div className="space-y-3">
+                  {/* Username Field */}
+                  <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <User size={20} style={{ color: 'var(--text-muted)' }} />
+                        <div className="flex-1">
+                          <div className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Username</div>
+                          {editingField === 'username' ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className="input-field flex-1 py-1 text-sm"
+                                autoFocus
+                              />
+                              <button
+                                onClick={handleSaveEdit}
+                                disabled={updateLoading}
+                                className="px-3 py-1 rounded text-sm font-medium transition-colors"
+                                style={{ background: 'var(--accent)', color: 'white' }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="px-3 py-1 rounded text-sm font-medium transition-colors"
+                                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                              {username || 'Not set'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {editingField !== 'username' && (
+                        <button
+                          onClick={() => handleEditField('username', username)}
+                          className="p-2 rounded-lg transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                      )}
                     </div>
-                    <div>
-                      <div className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{userEmail.split('@')[0]}</div>
-                      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{userEmail}</div>
+                  </div>
+
+                  {/* Email Field */}
+                  <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <Mail size={20} style={{ color: 'var(--text-muted)' }} />
+                        <div className="flex-1">
+                          <div className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Email Address</div>
+                          {editingField === 'email' ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="email"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className="input-field flex-1 py-1 text-sm"
+                                autoFocus
+                              />
+                              <button
+                                onClick={handleSaveEdit}
+                                disabled={updateLoading}
+                                className="px-3 py-1 rounded text-sm font-medium transition-colors"
+                                style={{ background: 'var(--accent)', color: 'white' }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="px-3 py-1 rounded text-sm font-medium transition-colors"
+                                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                              {userEmail}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {editingField !== 'email' && (
+                        <button
+                          onClick={() => handleEditField('email', userEmail)}
+                          className="p-2 rounded-lg transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Password Field */}
+                  <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <Lock size={20} style={{ color: 'var(--text-muted)' }} />
+                        <div className="flex-1">
+                          <div className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Password</div>
+                          {editingField === 'password' ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="password"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                placeholder="Enter new password"
+                                className="input-field flex-1 py-1 text-sm"
+                                autoFocus
+                              />
+                              <button
+                                onClick={handleSaveEdit}
+                                disabled={updateLoading}
+                                className="px-3 py-1 rounded text-sm font-medium transition-colors"
+                                style={{ background: 'var(--accent)', color: 'white' }}
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="px-3 py-1 rounded text-sm font-medium transition-colors"
+                                style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                              ••••••••
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {editingField !== 'password' && (
+                        <button
+                          onClick={() => handleEditField('password', '')}
+                          className="p-2 rounded-lg transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Actions Section */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text)' }}>Actions</h3>
+              {/* Logout Section */}
+              <div className="pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-200"
