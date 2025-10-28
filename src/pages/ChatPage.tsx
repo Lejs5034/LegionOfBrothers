@@ -139,10 +139,13 @@ export default function ChatPage() {
   const subscribeToMessages = useCallback(() => {
     if (!selectedChannel) return;
 
-    console.log('Subscribing to messages for channel:', selectedChannel.id);
+    console.log('Subscribing to messages for channel:', selectedChannel.id, selectedChannel.name);
+
+    // Use a unique channel name with timestamp to avoid conflicts
+    const channelName = `channel-messages-${selectedChannel.id}`;
 
     const subscription = supabase
-      .channel(`messages:${selectedChannel.id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -152,7 +155,7 @@ export default function ChatPage() {
           filter: `channel_id=eq.${selectedChannel.id}`,
         },
         async (payload) => {
-          console.log('New message received via Realtime:', payload);
+          console.log('New message received via Realtime in channel:', selectedChannel.name, payload);
 
           const { data: profileData } = await supabase
             .from('profiles')
@@ -169,13 +172,16 @@ export default function ChatPage() {
           setMessages((prev) => [...prev, newMessage]);
         }
       )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
+      .subscribe((status, err) => {
+        console.log(`Realtime subscription status for ${selectedChannel.name}:`, status);
+        if (err) {
+          console.error('Subscription error:', err);
+        }
       });
 
     return () => {
-      console.log('Unsubscribing from channel:', selectedChannel.id);
-      subscription.unsubscribe();
+      console.log('Unsubscribing from channel:', selectedChannel.id, selectedChannel.name);
+      supabase.removeChannel(subscription);
     };
   }, [selectedChannel]);
 
