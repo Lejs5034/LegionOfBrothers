@@ -88,31 +88,28 @@ const Community: React.FC = () => {
         </motion.div>
 
         {/* Stats */}
-        <motion.div 
-          className="grid grid-cols-2 lg:grid-cols-4 gap-8 mb-20"
+        <motion.div
+          className="flex justify-center mb-20"
           initial={{ opacity: 0, y: 30 }}
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
           transition={{ delay: 0.3, duration: 0.8 }}
         >
-          {stats.map((stat, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={inView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
-              transition={{ delay: 0.5 + (index * 0.1), duration: 0.6 }}
-              className="group text-center p-8 rounded-2xl bg-gradient-to-br from-gray-800/50 to-gray-700/30 hover:scale-105 transition-all duration-300 cursor-pointer"
-            >
-              <div className={`inline-flex p-4 rounded-xl bg-gradient-to-br ${stat.gradient} mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                {stat.icon}
-              </div>
-              <div className={`text-4xl md:text-5xl font-black mb-2 bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
-                {stat.number}
-              </div>
-              <div className="text-gray-400 font-medium group-hover:text-gray-300 transition-colors duration-300">
-                {stat.label}
-              </div>
-            </motion.div>
-          ))}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={inView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
+            transition={{ delay: 0.5, duration: 0.6 }}
+            className="group text-center p-16 rounded-3xl bg-gradient-to-br from-gray-800/50 to-gray-700/30 hover:scale-105 transition-all duration-300 cursor-pointer max-w-2xl w-full"
+          >
+            <div className="inline-flex p-6 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 mb-6 group-hover:scale-110 transition-transform duration-300">
+              <Users2 size={64} />
+            </div>
+            <div className="text-7xl md:text-8xl font-black mb-4 bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+              10K+
+            </div>
+            <div className="text-2xl md:text-3xl text-gray-400 font-medium group-hover:text-gray-300 transition-colors duration-300">
+              Elite Members
+            </div>
+          </motion.div>
         </motion.div>
 
         {/* Testimonials */}
