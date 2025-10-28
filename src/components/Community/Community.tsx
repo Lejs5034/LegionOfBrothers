@@ -72,26 +72,6 @@ const Community: React.FC = () => {
     },
   ];
 
-  const testimonials = [
-    {
-      name: "Marcus Chen",
-      role: "Crypto Trader",
-      quote: "The Legion transformed me from a 9-5 worker into a 6-figure trader. The community is unmatched.",
-      avatar: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    },
-    {
-      name: "Sofia Rodriguez",
-      role: "Business Owner",
-      quote: "Built my empire with strategies learned here. From $0 to $500K in 18 months.",
-      avatar: "https://images.pexels.com/photos/3823042/pexels-photo-3823042.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    },
-    {
-      name: "David Kim",
-      role: "Copywriter",
-      quote: "My words now generate millions. The Legion's copywriting program is pure gold.",
-      avatar: "https://images.pexels.com/photos/3760055/pexels-photo-3760055.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop",
-    },
-  ];
 
   return (
     <section className="py-24 px-4 bg-gradient-to-br from-gray-900 via-black to-purple-900/20">
@@ -146,45 +126,6 @@ const Community: React.FC = () => {
               Brothers
             </div>
           </motion.div>
-        </motion.div>
-
-        {/* Testimonials */}
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-          transition={{ delay: 0.6, duration: 0.8 }}
-          className="mb-16"
-        >
-          <h3 className="text-3xl md:text-4xl font-bold text-center mb-12 text-white">
-            <span className="text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text">Success</span> Stories
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-                transition={{ delay: 0.8 + (index * 0.1), duration: 0.6 }}
-                className="group p-8 rounded-2xl bg-gradient-to-br from-gray-800/80 to-gray-700/50 hover:scale-105 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10"
-              >
-                <div className="flex items-center mb-6">
-                  <img 
-                    src={testimonial.avatar} 
-                    alt={testimonial.name}
-                    className="w-16 h-16 rounded-full mr-4 object-cover border-2 border-cyan-500/30 group-hover:border-cyan-500/60 transition-colors duration-300"
-                  />
-                  <div>
-                    <h4 className="text-white font-bold text-lg">{testimonial.name}</h4>
-                    <p className="text-cyan-400 text-sm">{testimonial.role}</p>
-                  </div>
-                </div>
-                <p className="text-gray-300 italic leading-relaxed group-hover:text-gray-200 transition-colors duration-300">
-                  "{testimonial.quote}"
-                </p>
-              </motion.div>
-            ))}
-          </div>
         </motion.div>
 
         {/* CTA */}
