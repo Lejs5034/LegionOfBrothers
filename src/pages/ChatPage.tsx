@@ -246,9 +246,9 @@ export default function ChatPage() {
   const currentServer = servers.find(s => s.id === selectedServer);
 
   return (
-    <div className="h-screen grid grid-cols-[72px_240px_1fr]" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+    <div className="h-screen overflow-hidden grid grid-cols-[72px_240px_1fr]" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       {/* Server List */}
-      <aside className="sidebar flex flex-col items-center py-3 gap-2">
+      <aside className="sidebar flex flex-col items-center py-3 gap-2 overflow-y-auto">
         {servers.map((server) => {
           const Icon = server.icon;
           const isActive = selectedServer === server.id;
@@ -267,15 +267,15 @@ export default function ChatPage() {
       </aside>
 
       {/* Channel Sidebar */}
-      <aside className="sidebar flex flex-col">
-        <div className="p-4" style={{ borderBottom: '1px solid var(--border)' }}>
+      <aside className="sidebar flex flex-col overflow-hidden">
+        <div className="p-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <h1 className="font-bold text-lg" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
             {currentServer?.name}
           </h1>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>The Legion Community</p>
         </div>
 
-        <nav className="px-2 py-3 space-y-1 overflow-auto flex-1">
+        <nav className="px-2 py-3 space-y-1 overflow-y-auto flex-1">
           <div className="text-xs font-semibold px-3 py-2 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             Channels
           </div>
@@ -305,7 +305,7 @@ export default function ChatPage() {
           )}
         </nav>
 
-        <div className="mt-auto p-3 flex items-center gap-3" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="mt-auto p-3 flex items-center gap-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
           <div className="size-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: 'var(--accent-grad)' }}>
             {userEmail.charAt(0).toUpperCase()}
           </div>
@@ -387,15 +387,15 @@ export default function ChatPage() {
       )}
 
       {/* Chat section */}
-      <main className="grid grid-rows-[auto_1fr_auto]">
-        <div className="px-6 py-4 flex items-center space-x-2" style={{ borderBottom: '1px solid var(--border)' }}>
+      <main className="grid grid-rows-[auto_1fr_auto] overflow-hidden">
+        <div className="px-6 py-4 flex items-center space-x-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <Hash size={20} style={{ color: 'var(--text-muted)' }} />
           <h2 className="font-semibold text-lg capitalize" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
             {selectedChannel?.name || 'Select a channel'}
           </h2>
         </div>
 
-        <div className="p-6 overflow-auto flex flex-col gap-3">
+        <div className="p-6 overflow-y-auto flex flex-col gap-3">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
               <div className="size-16 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
@@ -430,7 +430,7 @@ export default function ChatPage() {
           )}
         </div>
 
-        <div className="p-4" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="p-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
           <form onSubmit={handleSendMessage} className="flex gap-2">
             <input
               className="input-field flex-1"
