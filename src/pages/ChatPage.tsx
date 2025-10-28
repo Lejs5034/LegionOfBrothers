@@ -139,6 +139,8 @@ export default function ChatPage() {
   const subscribeToMessages = useCallback(() => {
     if (!selectedChannel) return;
 
+    console.log('Subscribing to messages for channel:', selectedChannel.id);
+
     const subscription = supabase
       .channel(`messages:${selectedChannel.id}`)
       .on(
@@ -150,6 +152,8 @@ export default function ChatPage() {
           filter: `channel_id=eq.${selectedChannel.id}`,
         },
         async (payload) => {
+          console.log('New message received via Realtime:', payload);
+
           const { data: profileData } = await supabase
             .from('profiles')
             .select('username')
@@ -161,12 +165,16 @@ export default function ChatPage() {
             profiles: profileData,
           } as Message;
 
+          console.log('Adding message to state:', newMessage);
           setMessages((prev) => [...prev, newMessage]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
 
     return () => {
+      console.log('Unsubscribing from channel:', selectedChannel.id);
       subscription.unsubscribe();
     };
   }, [selectedChannel]);
