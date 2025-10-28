@@ -143,7 +143,7 @@ const Community: React.FC = () => {
               {memberCount.toLocaleString()}+
             </div>
             <div className="text-2xl md:text-3xl text-gray-400 font-medium group-hover:text-gray-300 transition-colors duration-300">
-              Elite Members
+              Brothers
             </div>
           </motion.div>
         </motion.div>
