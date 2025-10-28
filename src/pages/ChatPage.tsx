@@ -198,15 +198,23 @@ export default function ChatPage() {
 
     setLoading(true);
     try {
-      await supabase.from('messages').insert({
+      console.log('Attempting to send message to channel:', selectedChannel);
+      const { data, error } = await supabase.from('messages').insert({
         channel_id: selectedChannel.id,
         user_id: userId,
         content: messageInput.trim(),
       });
 
-      setMessageInput('');
+      if (error) {
+        console.error('Error sending message:', error);
+        alert(`Failed to send message: ${error.message}`);
+      } else {
+        console.log('Message sent successfully:', data);
+        setMessageInput('');
+      }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Unexpected error sending message:', error);
+      alert('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
