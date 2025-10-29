@@ -455,10 +455,14 @@ export default function ChatPage() {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const uploadFiles = async (messageId: string, isDirect: boolean) => {
-    if (selectedFiles.length === 0) return;
+  const uploadFilesToStorage = async () => {
+    const uploadedPaths: Array<{
+      storage_path: string;
+      file_name: string;
+      file_type: string;
+      file_size: number;
+    }> = [];
 
-    setUploadingFile(true);
     try {
       for (const file of selectedFiles) {
         const fileExt = file.name.split('.').pop();
@@ -470,27 +474,45 @@ export default function ChatPage() {
 
         if (uploadError) throw uploadError;
 
-        const { error: dbError } = await supabase
-          .from('message_attachments')
-          .insert({
-            [isDirect ? 'direct_message_id' : 'message_id']: messageId,
-            user_id: userId,
-            file_name: file.name,
-            file_type: file.type,
-            file_size: file.size,
-            storage_path: fileName,
-          });
-
-        if (dbError) throw dbError;
+        uploadedPaths.push({
+          storage_path: fileName,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+        });
       }
 
-      setSelectedFiles([]);
+      return uploadedPaths;
     } catch (error: any) {
-      console.error('Error uploading files:', error);
-      alert(`Failed to upload files: ${error.message}`);
-    } finally {
-      setUploadingFile(false);
+      console.error('Error uploading files to storage:', error);
+      for (const uploaded of uploadedPaths) {
+        await supabase.storage.from('uploads').remove([uploaded.storage_path]);
+      }
+      throw error;
     }
+  };
+
+  const createAttachmentRecords = async (
+    messageId: string,
+    isDirect: boolean,
+    uploadedFiles: Array<{
+      storage_path: string;
+      file_name: string;
+      file_type: string;
+      file_size: number;
+    }>
+  ) => {
+    const attachmentRecords = uploadedFiles.map((file) => ({
+      [isDirect ? 'direct_message_id' : 'message_id']: messageId,
+      user_id: userId,
+      ...file,
+    }));
+
+    const { error } = await supabase
+      .from('message_attachments')
+      .insert(attachmentRecords);
+
+    if (error) throw error;
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -501,7 +523,20 @@ export default function ChatPage() {
     if (viewMode === 'friends' && !selectedFriend) return;
 
     setLoading(true);
+    setUploadingFile(selectedFiles.length > 0);
+
     try {
+      let uploadedFiles: Array<{
+        storage_path: string;
+        file_name: string;
+        file_type: string;
+        file_size: number;
+      }> = [];
+
+      if (selectedFiles.length > 0) {
+        uploadedFiles = await uploadFilesToStorage();
+      }
+
       if (viewMode === 'servers' && selectedChannel) {
         console.log('Attempting to send message to channel:', selectedChannel);
         const { data, error } = await supabase
@@ -517,13 +552,19 @@ export default function ChatPage() {
         if (error) {
           console.error('Error sending message:', error);
           alert(`Failed to send message: ${error.message}`);
+          if (uploadedFiles.length > 0) {
+            for (const file of uploadedFiles) {
+              await supabase.storage.from('uploads').remove([file.storage_path]);
+            }
+          }
         } else {
           console.log('Message sent successfully:', data);
-          if (selectedFiles.length > 0 && data) {
-            await uploadFiles(data.id, false);
-            await loadMessages();
+          if (uploadedFiles.length > 0 && data) {
+            await createAttachmentRecords(data.id, false, uploadedFiles);
           }
+          await loadMessages();
           setMessageInput('');
+          setSelectedFiles([]);
         }
       } else if (viewMode === 'friends' && selectedFriend) {
         const { data, error } = await supabase
@@ -543,16 +584,19 @@ export default function ChatPage() {
         if (error) {
           console.error('Error sending direct message:', error);
           alert(`Failed to send message: ${error.message}`);
+          if (uploadedFiles.length > 0) {
+            for (const file of uploadedFiles) {
+              await supabase.storage.from('uploads').remove([file.storage_path]);
+            }
+          }
         } else {
           console.log('Direct message sent successfully:', data);
-          if (selectedFiles.length > 0 && data) {
-            await uploadFiles(data.id, true);
-            await loadDirectMessages();
-          } else {
-            const newMessage = data as DirectMessage;
-            setDirectMessages((prev) => [...prev, newMessage]);
+          if (uploadedFiles.length > 0 && data) {
+            await createAttachmentRecords(data.id, true, uploadedFiles);
           }
+          await loadDirectMessages();
           setMessageInput('');
+          setSelectedFiles([]);
         }
       }
     } catch (error) {
@@ -560,6 +604,7 @@ export default function ChatPage() {
       alert('An unexpected error occurred');
     } finally {
       setLoading(false);
+      setUploadingFile(false);
     }
   };
 
