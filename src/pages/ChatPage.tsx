@@ -1208,39 +1208,27 @@ export default function ChatPage() {
               </>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {viewMode === 'servers' && (
-              <button
-                onClick={() => setShowMemberList(!showMemberList)}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: 'var(--text-muted)' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--surface-2)';
-                  e.currentTarget.style.color = 'var(--text)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-muted)';
-                }}
-                title={showMemberList ? 'Hide member list' : 'Show member list'}
-              >
-                {showMemberList ? <PanelRightClose size={20} /> : <PanelRight size={20} />}
-              </button>
-            )}
-            {viewMode === 'servers' && (
-              <button
-                onClick={() => setShowFriendRequests(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200"
-                style={{ background: 'var(--accent)', color: 'white' }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                title="Friend Requests"
-              >
-                <UserPlus size={18} />
-                <span>Friends</span>
-              </button>
-            )}
-          </div>
+          {viewMode === 'servers' && (
+            <button
+              onClick={() => setShowMemberList(!showMemberList)}
+              className="p-2 rounded-lg transition-colors"
+              style={{
+                color: 'var(--text-muted)',
+                marginRight: '-0.5rem'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--surface-2)';
+                e.currentTarget.style.color = 'var(--text)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-muted)';
+              }}
+              title={showMemberList ? 'Hide member list' : 'Show member list'}
+            >
+              {showMemberList ? <PanelRightClose size={20} /> : <PanelRight size={20} />}
+            </button>
+          )}
         </div>
 
         <div className="p-6 overflow-y-auto flex flex-col gap-3">
