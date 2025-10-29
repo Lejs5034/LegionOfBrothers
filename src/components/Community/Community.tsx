@@ -51,7 +51,7 @@ const Community: React.FC = () => {
     {
       icon: <Users2 size={32} />,
       number: "10K+",
-      label: "Elite Members",
+      label: "Brotherhood Members",
       gradient: "from-cyan-400 to-blue-600",
     },
     {

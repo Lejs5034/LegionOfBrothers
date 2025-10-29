@@ -23,7 +23,7 @@ const Mission: React.FC = () => {
     {
       icon: <Zap size={32} />,
       title: "TRANSFORMATION",
-      description: "Complete metamorphosis from ordinary to extraordinary, unstoppable elite.",
+      description: "Complete metamorphosis from ordinary to extraordinary, unstoppable brotherhood.",
     },
   ];
 
@@ -61,8 +61,8 @@ const Mission: React.FC = () => {
               </p>
               
               <p className="text-lg leading-relaxed">
-                The Legion of Brothers isn't just a school—it's a brotherhood of elite performers, 
-                entrepreneurs, and visionaries who refuse to settle for mediocrity. We don't just teach skills; 
+                The Legion of Brothers isn't just a school—it's a brotherhood of high performers,
+                entrepreneurs, and visionaries who refuse to settle for mediocrity. We don't just teach skills;
                 we forge warriors equipped to dominate the future economy.
               </p>
               

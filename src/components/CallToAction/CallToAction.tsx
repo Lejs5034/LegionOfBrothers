@@ -14,7 +14,7 @@ const CallToAction: React.FC = () => {
   const benefits = [
     {
       icon: <Users size={24} />,
-      title: "Elite Network Access",
+      title: "Brotherhood Network Access",
       description: "Connect with top-tier entrepreneurs and industry leaders",
     },
     {
@@ -53,7 +53,7 @@ const CallToAction: React.FC = () => {
             animate={inView ? { opacity: 1 } : { opacity: 0 }}
             transition={{ delay: 0.4, duration: 0.8 }}
           >
-            Are you a master in your field? Join our elite faculty and help forge the next generation 
+            Are you a master in your field? Join our brotherhood of faculty and help forge the next generation
             of unstoppable leaders while building your own legacy.
           </motion.p>
         </motion.div>
