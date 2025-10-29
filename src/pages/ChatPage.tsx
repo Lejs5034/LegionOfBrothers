@@ -1,8 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
+
+interface Attachment {
+  id: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  storage_path: string;
+  created_at: string;
+}
 
 interface Message {
   id: string;
@@ -14,6 +23,7 @@ interface Message {
   profiles?: {
     username: string;
   };
+  attachments?: Attachment[];
 }
 
 interface Channel {
@@ -45,6 +55,7 @@ interface DirectMessage {
   receiver?: {
     username: string;
   };
+  attachments?: Attachment[];
 }
 
 const serverSlugs = {
@@ -90,6 +101,9 @@ export default function ChatPage() {
   const [editingMessageContent, setEditingMessageContent] = useState('');
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [showMessageMenu, setShowMessageMenu] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -231,7 +245,7 @@ export default function ChatPage() {
   const loadMessages = useCallback(async () => {
     if (!selectedChannel) return;
 
-    const { data } = await supabase
+    const { data: messagesData } = await supabase
       .from('messages')
       .select(`
         *,
@@ -240,8 +254,19 @@ export default function ChatPage() {
       .eq('channel_id', selectedChannel.id)
       .order('created_at', { ascending: true });
 
-    if (data) {
-      setMessages(data as Message[]);
+    if (messagesData) {
+      const messagesWithAttachments = await Promise.all(
+        messagesData.map(async (msg: any) => {
+          const { data: attachments } = await supabase
+            .from('message_attachments')
+            .select('*')
+            .eq('message_id', msg.id);
+
+          return { ...msg, attachments: attachments || [] } as Message;
+        })
+      );
+
+      setMessages(messagesWithAttachments);
     }
   }, [selectedChannel]);
 
@@ -304,7 +329,7 @@ export default function ChatPage() {
   const loadDirectMessages = useCallback(async () => {
     if (!selectedFriend) return;
 
-    const { data } = await supabase
+    const { data: dmData } = await supabase
       .from('direct_messages')
       .select(`
         *,
@@ -314,8 +339,19 @@ export default function ChatPage() {
       .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedFriend.id}),and(sender_id.eq.${selectedFriend.id},receiver_id.eq.${userId})`)
       .order('created_at', { ascending: true });
 
-    if (data) {
-      setDirectMessages(data as DirectMessage[]);
+    if (dmData) {
+      const dmsWithAttachments = await Promise.all(
+        dmData.map(async (dm: any) => {
+          const { data: attachments } = await supabase
+            .from('message_attachments')
+            .select('*')
+            .eq('direct_message_id', dm.id);
+
+          return { ...dm, attachments: attachments || [] } as DirectMessage;
+        })
+      );
+
+      setDirectMessages(dmsWithAttachments);
 
       await supabase
         .from('direct_messages')
@@ -387,9 +423,79 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, directMessages]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const validFiles: File[] = [];
+    const invalidFiles: string[] = [];
+
+    Array.from(files).forEach((file) => {
+      if (file.name.toLowerCase().endsWith('.exe')) {
+        invalidFiles.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (invalidFiles.length > 0) {
+      alert(`The following files cannot be uploaded (.exe files are not allowed):\n${invalidFiles.join('\n')}`);
+    }
+
+    if (validFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async (messageId: string, isDirect: boolean) => {
+    if (selectedFiles.length === 0) return;
+
+    setUploadingFile(true);
+    try {
+      for (const file of selectedFiles) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('uploads')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        const { error: dbError } = await supabase
+          .from('message_attachments')
+          .insert({
+            [isDirect ? 'direct_message_id' : 'message_id']: messageId,
+            user_id: userId,
+            file_name: file.name,
+            file_type: file.type,
+            file_size: file.size,
+            storage_path: fileName,
+          });
+
+        if (dbError) throw dbError;
+      }
+
+      setSelectedFiles([]);
+    } catch (error: any) {
+      console.error('Error uploading files:', error);
+      alert(`Failed to upload files: ${error.message}`);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageInput.trim() || loading) return;
+    if ((!messageInput.trim() && selectedFiles.length === 0) || loading) return;
 
     if (viewMode === 'servers' && !selectedChannel) return;
     if (viewMode === 'friends' && !selectedFriend) return;
@@ -398,17 +504,24 @@ export default function ChatPage() {
     try {
       if (viewMode === 'servers' && selectedChannel) {
         console.log('Attempting to send message to channel:', selectedChannel);
-        const { data, error } = await supabase.from('messages').insert({
-          channel_id: selectedChannel.id,
-          user_id: userId,
-          content: messageInput.trim(),
-        });
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({
+            channel_id: selectedChannel.id,
+            user_id: userId,
+            content: messageInput.trim() || '📎 Attachment',
+          })
+          .select('*')
+          .single();
 
         if (error) {
           console.error('Error sending message:', error);
           alert(`Failed to send message: ${error.message}`);
         } else {
           console.log('Message sent successfully:', data);
+          if (selectedFiles.length > 0 && data) {
+            await uploadFiles(data.id, false);
+          }
           setMessageInput('');
         }
       } else if (viewMode === 'friends' && selectedFriend) {
@@ -417,7 +530,7 @@ export default function ChatPage() {
           .insert({
             sender_id: userId,
             receiver_id: selectedFriend.id,
-            content: messageInput.trim(),
+            content: messageInput.trim() || '📎 Attachment',
           })
           .select(`
             *,
@@ -431,6 +544,9 @@ export default function ChatPage() {
           alert(`Failed to send message: ${error.message}`);
         } else {
           console.log('Direct message sent successfully:', data);
+          if (selectedFiles.length > 0 && data) {
+            await uploadFiles(data.id, true);
+          }
           const newMessage = data as DirectMessage;
           setDirectMessages((prev) => [...prev, newMessage]);
           setMessageInput('');
@@ -1117,7 +1233,52 @@ export default function ChatPage() {
                           </button>
                         </div>
                       ) : (
-                        <p style={{ color: 'var(--text)' }}>{message.content}</p>
+                        <>
+                          <p style={{ color: 'var(--text)' }}>{message.content}</p>
+                          {message.attachments && message.attachments.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {message.attachments.map((attachment) => {
+                                const { data } = supabase.storage.from('uploads').getPublicUrl(attachment.storage_path);
+                                const isImage = attachment.file_type.startsWith('image/');
+
+                                return (
+                                  <div key={attachment.id}>
+                                    {isImage ? (
+                                      <a href={data.publicUrl} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                          src={data.publicUrl}
+                                          alt={attachment.file_name}
+                                          className="rounded-lg max-w-xs max-h-64 object-cover cursor-pointer transition-opacity"
+                                          style={{ border: '1px solid var(--border)' }}
+                                          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                        />
+                                      </a>
+                                    ) : (
+                                      <a
+                                        href={data.publicUrl}
+                                        download={attachment.file_name}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                                      >
+                                        <FileText size={20} style={{ color: 'var(--accent)' }} />
+                                        <div className="flex flex-col">
+                                          <span className="text-sm font-medium">{attachment.file_name}</span>
+                                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                            {(attachment.file_size / 1024).toFixed(1)} KB
+                                          </span>
+                                        </div>
+                                        <Download size={16} style={{ color: 'var(--text-muted)' }} />
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                     {isOwnMessage && !isEditing && hoveredMessageId === message.id && (
@@ -1222,7 +1383,52 @@ export default function ChatPage() {
                           </button>
                         </div>
                       ) : (
-                        <p style={{ color: 'var(--text)' }}>{dm.content}</p>
+                        <>
+                          <p style={{ color: 'var(--text)' }}>{dm.content}</p>
+                          {dm.attachments && dm.attachments.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {dm.attachments.map((attachment) => {
+                                const { data } = supabase.storage.from('uploads').getPublicUrl(attachment.storage_path);
+                                const isImage = attachment.file_type.startsWith('image/');
+
+                                return (
+                                  <div key={attachment.id}>
+                                    {isImage ? (
+                                      <a href={data.publicUrl} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                          src={data.publicUrl}
+                                          alt={attachment.file_name}
+                                          className="rounded-lg max-w-xs max-h-64 object-cover cursor-pointer transition-opacity"
+                                          style={{ border: '1px solid var(--border)' }}
+                                          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                        />
+                                      </a>
+                                    ) : (
+                                      <a
+                                        href={data.publicUrl}
+                                        download={attachment.file_name}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                                      >
+                                        <FileText size={20} style={{ color: 'var(--accent)' }} />
+                                        <div className="flex flex-col">
+                                          <span className="text-sm font-medium">{attachment.file_name}</span>
+                                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                            {(attachment.file_size / 1024).toFixed(1)} KB
+                                          </span>
+                                        </div>
+                                        <Download size={16} style={{ color: 'var(--text-muted)' }} />
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                     {isOwnMessage && !isEditing && hoveredMessageId === dm.id && (
@@ -1258,7 +1464,56 @@ export default function ChatPage() {
         </div>
 
         <div className="p-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+          {selectedFiles.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {selectedFiles.map((file, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                >
+                  {file.type.startsWith('image/') ? (
+                    <ImageIcon size={16} style={{ color: 'var(--accent)' }} />
+                  ) : (
+                    <FileText size={16} style={{ color: 'var(--accent)' }} />
+                  )}
+                  <span className="text-sm truncate max-w-[150px]" style={{ color: 'var(--text)' }}>
+                    {file.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeSelectedFile(index)}
+                    className="p-0.5 rounded transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <form onSubmit={handleSendMessage} className="flex gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              multiple
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 rounded-lg transition-colors"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+              disabled={uploadingFile || loading}
+              title="Attach files"
+            >
+              <Paperclip size={20} />
+            </button>
             <input
               className="input-field flex-1"
               placeholder={
@@ -1268,28 +1523,34 @@ export default function ChatPage() {
               }
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
-              disabled={(viewMode === 'servers' && !selectedChannel) || (viewMode === 'friends' && !selectedFriend) || loading}
+              disabled={(viewMode === 'servers' && !selectedChannel) || (viewMode === 'friends' && !selectedFriend) || loading || uploadingFile}
             />
             <button
               type="submit"
               disabled={
-                !messageInput.trim() ||
+                (!messageInput.trim() && selectedFiles.length === 0) ||
                 (viewMode === 'servers' && !selectedChannel) ||
                 (viewMode === 'friends' && !selectedFriend) ||
-                loading
+                loading ||
+                uploadingFile
               }
               className="btn-primary flex items-center gap-2"
               style={{
                 opacity:
-                  !messageInput.trim() ||
+                  (!messageInput.trim() && selectedFiles.length === 0) ||
                   (viewMode === 'servers' && !selectedChannel) ||
                   (viewMode === 'friends' && !selectedFriend) ||
-                  loading
+                  loading ||
+                  uploadingFile
                     ? 0.5
                     : 1,
               }}
             >
-              <Send size={18} />
+              {uploadingFile ? (
+                <div className="w-5 h-5 border-2 border-t-2 rounded-full animate-spin" style={{ borderColor: 'white', borderTopColor: 'transparent' }} />
+              ) : (
+                <Send size={18} />
+              )}
             </button>
           </form>
         </div>
