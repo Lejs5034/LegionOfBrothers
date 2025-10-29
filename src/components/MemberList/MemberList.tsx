@@ -38,6 +38,9 @@ export default function MemberList({ serverId }: MemberListProps) {
   const [loading, setLoading] = useState(true);
 
   const loadMembers = async () => {
+    setLoading(true);
+    setMembersByRole([]);
+
     try {
       const { data: serverData } = await supabase
         .from('servers')
@@ -45,7 +48,10 @@ export default function MemberList({ serverId }: MemberListProps) {
         .eq('slug', serverId)
         .maybeSingle();
 
-      if (!serverData) return;
+      if (!serverData) {
+        setLoading(false);
+        return;
+      }
 
       const { data: roles } = await supabase
         .from('server_roles')
@@ -65,7 +71,10 @@ export default function MemberList({ serverId }: MemberListProps) {
         `)
         .eq('server_id', serverData.id);
 
-      if (!roles || !members) return;
+      if (!roles || !members) {
+        setLoading(false);
+        return;
+      }
 
       const roleMap = new Map(roles.map(role => [role.id, role]));
 
@@ -93,8 +102,9 @@ export default function MemberList({ serverId }: MemberListProps) {
   useEffect(() => {
     loadMembers();
 
+    const channelName = `server_members_${serverId}_${Date.now()}`;
     const channel = supabase
-      .channel('server_members_changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
