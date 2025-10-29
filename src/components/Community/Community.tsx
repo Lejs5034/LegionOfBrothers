@@ -151,7 +151,7 @@ const Community: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/sign-in')}
+                onClick={() => navigate('/sign-up')}
                 className="group relative px-10 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-bold text-lg hover:scale-105 transition-transform duration-300 overflow-hidden"
               >
                 <span className="relative z-10">JOIN THE LEGION</span>
