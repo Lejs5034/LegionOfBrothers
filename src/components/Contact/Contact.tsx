@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import { Mail, MessageSquare, Send, CheckCircle } from 'lucide-react';
+import { Mail, MessageSquare, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 const Contact: React.FC = () => {
   const [ref, inView] = useInView({
@@ -17,6 +18,9 @@ const Contact: React.FC = () => {
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -24,13 +28,105 @@ const Contact: React.FC = () => {
       ...prev,
       [name]: value,
     }));
+
+    // Clear validation error for this field
+    if (validationErrors[name]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+
+    // Clear general error
+    if (error) {
+      setError(null);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required';
+    } else if (formData.name.length > 5000) {
+      errors.name = 'Name is too long (max 5000 characters)';
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    } else if (formData.email.length > 5000) {
+      errors.email = 'Email is too long (max 5000 characters)';
+    }
+
+    if (!formData.subject.trim()) {
+      errors.subject = 'Subject is required';
+    } else if (formData.subject.length > 5000) {
+      errors.subject = 'Subject is too long (max 5000 characters)';
+    }
+
+    if (!formData.message.trim()) {
+      errors.message = 'Message is required';
+    } else if (formData.message.length > 5000) {
+      errors.message = 'Message is too long (max 5000 characters)';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate form submission
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 3000);
+
+    // Clear previous errors
+    setError(null);
+    setValidationErrors({});
+
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data, error: functionError } = await supabase.functions.invoke('contact-send', {
+        body: {
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          subject: formData.subject.trim(),
+          message: formData.message.trim(),
+        },
+      });
+
+      if (functionError) {
+        throw functionError;
+      }
+
+      if (data?.error) {
+        setError(data.error);
+        return;
+      }
+
+      // Success
+      setIsSubmitted(true);
+      setFormData({
+        name: '',
+        email: '',
+        subject: '',
+        message: '',
+      });
+
+      // Reset success message after 5 seconds
+      setTimeout(() => setIsSubmitted(false), 5000);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const contactMethods = [
@@ -144,6 +240,17 @@ const Contact: React.FC = () => {
             <div className="p-8 bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl border border-gray-700 hover:border-cyan-500/50 transition-all duration-500">
               <h3 className="text-2xl font-bold text-white mb-8 text-center">Send us a Message</h3>
 
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start space-x-3"
+                >
+                  <AlertCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-300 text-sm">{error}</p>
+                </motion.div>
+              )}
+
               {!isSubmitted ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -158,9 +265,15 @@ const Contact: React.FC = () => {
                         required
                         value={formData.name}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300"
+                        disabled={isLoading}
+                        className={`w-full px-4 py-3 bg-gray-800/50 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          validationErrors.name ? 'border-red-500' : 'border-gray-600'
+                        }`}
                         placeholder="Your name"
                       />
+                      {validationErrors.name && (
+                        <p className="mt-1 text-sm text-red-400">{validationErrors.name}</p>
+                      )}
                     </div>
 
                     <div>
@@ -174,9 +287,15 @@ const Contact: React.FC = () => {
                         required
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300"
+                        disabled={isLoading}
+                        className={`w-full px-4 py-3 bg-gray-800/50 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          validationErrors.email ? 'border-red-500' : 'border-gray-600'
+                        }`}
                         placeholder="your@email.com"
                       />
+                      {validationErrors.email && (
+                        <p className="mt-1 text-sm text-red-400">{validationErrors.email}</p>
+                      )}
                     </div>
                   </div>
 
@@ -190,20 +309,26 @@ const Contact: React.FC = () => {
                       required
                       value={formData.subject}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white transition-all duration-300"
+                      disabled={isLoading}
+                      className={`w-full px-4 py-3 bg-gray-800/50 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        validationErrors.subject ? 'border-red-500' : 'border-gray-600'
+                      }`}
                     >
                       <option value="">Select a subject</option>
-                      <option value="general">General Inquiry</option>
-                      <option value="instructor">Instructor Application</option>
-                      <option value="student">Student Enrollment</option>
-                      <option value="partnership">Partnership Opportunity</option>
-                      <option value="support">Technical Support</option>
+                      <option value="General Inquiry">General Inquiry</option>
+                      <option value="Instructor Application">Instructor Application</option>
+                      <option value="Student Enrollment">Student Enrollment</option>
+                      <option value="Partnership Opportunity">Partnership Opportunity</option>
+                      <option value="Technical Support">Technical Support</option>
                     </select>
+                    {validationErrors.subject && (
+                      <p className="mt-1 text-sm text-red-400">{validationErrors.subject}</p>
+                    )}
                   </div>
 
                   <div>
                     <label htmlFor="message" className="block text-sm font-medium text-gray-300 mb-2">
-                      Message *
+                      Message * <span className="text-gray-500 text-xs">({formData.message.length}/5000)</span>
                     </label>
                     <textarea
                       id="message"
@@ -212,22 +337,45 @@ const Contact: React.FC = () => {
                       rows={6}
                       value={formData.message}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 resize-none"
+                      disabled={isLoading}
+                      maxLength={5000}
+                      className={`w-full px-4 py-3 bg-gray-800/50 border rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 resize-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                        validationErrors.message ? 'border-red-500' : 'border-gray-600'
+                      }`}
                       placeholder="Tell us how we can help you forge your path to greatness..."
                     />
+                    {validationErrors.message && (
+                      <p className="mt-1 text-sm text-red-400">{validationErrors.message}</p>
+                    )}
                   </div>
 
                   <motion.button
                     type="submit"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="group w-full py-4 px-6 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-lg text-white overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25"
+                    disabled={isLoading}
+                    whileHover={!isLoading ? { scale: 1.02 } : {}}
+                    whileTap={!isLoading ? { scale: 0.98 } : {}}
+                    className="group w-full py-4 px-6 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-lg text-white overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed relative"
                   >
                     <span className="relative z-10 flex items-center justify-center space-x-3">
-                      <Send size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
-                      <span>SEND MESSAGE</span>
+                      {isLoading ? (
+                        <>
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                          />
+                          <span>SENDING...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send size={20} className="group-hover:translate-x-1 transition-transform duration-300" />
+                          <span>SEND MESSAGE</span>
+                        </>
+                      )}
                     </span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    {!isLoading && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    )}
                   </motion.button>
                 </form>
               ) : (
