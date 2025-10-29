@@ -136,10 +136,14 @@ const CallToAction: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  const contactSection = document.getElementById('contact');
+                  contactSection?.scrollIntoView({ behavior: 'smooth' });
+                }}
                 className="group relative w-full py-6 px-8 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl font-bold text-xl text-white overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25"
               >
                 <span className="relative z-10 flex items-center justify-center space-x-3">
-                  <span>Contact us</span>
+                  <span>Get in Touch</span>
                   <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform duration-300" />
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
