@@ -72,7 +72,7 @@ export default function MemberList({ serverId }: MemberListProps) {
             role: roleMap.get(m.role_id || '') || undefined,
           }))
           .sort((a, b) => a.username.localeCompare(b.username)),
-      })).filter(group => group.members.length > 0);
+      }));
 
       setMembersByRole(groupedMembers);
     } catch (error) {
@@ -128,28 +128,34 @@ export default function MemberList({ serverId }: MemberListProps) {
               </h3>
             </div>
             <div className="space-y-1">
-              {members.map(member => (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#35373c] cursor-pointer transition-colors"
-                >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
-                    style={{
-                      backgroundColor: role.color + '20',
-                      color: role.color,
-                    }}
-                  >
-                    {member.username.charAt(0).toUpperCase()}
-                  </div>
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: role.color }}
-                  >
-                    {member.username}
-                  </span>
+              {members.length === 0 ? (
+                <div className="px-2 py-1.5 text-xs" style={{ color: '#6b7280' }}>
+                  No members
                 </div>
-              ))}
+              ) : (
+                members.map(member => (
+                  <div
+                    key={member.id}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#35373c] cursor-pointer transition-colors"
+                  >
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
+                      style={{
+                        backgroundColor: role.color + '20',
+                        color: role.color,
+                      }}
+                    >
+                      {member.username.charAt(0).toUpperCase()}
+                    </div>
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: role.color }}
+                    >
+                      {member.username}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         ))}
