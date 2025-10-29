@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Play, Bookmark, BookmarkCheck } from 'lucide-react';
+import { ArrowLeft, BookOpen, Play, Bookmark, BookmarkCheck, Plus, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Course {
@@ -36,6 +36,15 @@ export default function LearningCenterPage() {
   const [loading, setLoading] = useState(true);
   const [serverName, setServerName] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
+  const [canUpload, setCanUpload] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    description: '',
+    category: '',
+    cover_image_url: '',
+  });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -48,6 +57,31 @@ export default function LearningCenterPage() {
     };
     fetchUser();
   }, [navigate]);
+
+  const checkUploadPermission = useCallback(async () => {
+    if (!serverId || !userId) return;
+
+    try {
+      const { data: serverData } = await supabase
+        .from('servers')
+        .select('id')
+        .eq('slug', serverId)
+        .maybeSingle();
+
+      if (!serverData) return;
+
+      const { data, error } = await supabase.rpc('can_upload_courses_to_server', {
+        user_id: userId,
+        target_server_id: serverData.id,
+      });
+
+      if (!error) {
+        setCanUpload(data === true);
+      }
+    } catch (error) {
+      console.error('Error checking upload permission:', error);
+    }
+  }, [serverId, userId]);
 
   const loadServerName = useCallback(async () => {
     if (!serverId) return;
@@ -114,6 +148,10 @@ export default function LearningCenterPage() {
   useEffect(() => {
     loadCourses();
   }, [loadCourses]);
+
+  useEffect(() => {
+    checkUploadPermission();
+  }, [checkUploadPermission]);
 
   const handleStartCourse = async (course: CourseWithProgress) => {
     if (!userId || !serverId) return;
@@ -184,6 +222,46 @@ export default function LearningCenterPage() {
     }
   };
 
+  const handleUploadCourse = async () => {
+    if (!serverId || !userId) return;
+    if (!uploadForm.title || !uploadForm.description || !uploadForm.category) return;
+
+    setUploading(true);
+
+    try {
+      const { data: serverData } = await supabase
+        .from('servers')
+        .select('id')
+        .eq('slug', serverId)
+        .maybeSingle();
+
+      if (!serverData) return;
+
+      const { error } = await supabase.from('courses').insert({
+        server_id: serverData.id,
+        title: uploadForm.title,
+        description: uploadForm.description,
+        category: uploadForm.category,
+        cover_image_url: uploadForm.cover_image_url || null,
+        created_by: userId,
+      });
+
+      if (error) {
+        console.error('Error uploading course:', error);
+        alert('Failed to upload course. Please check your permissions.');
+      } else {
+        setShowUploadModal(false);
+        setUploadForm({ title: '', description: '', category: '', cover_image_url: '' });
+        loadCourses();
+      }
+    } catch (error) {
+      console.error('Error uploading course:', error);
+      alert('An error occurred while uploading the course.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const filteredCourses = getFilteredCourses();
 
   return (
@@ -217,43 +295,58 @@ export default function LearningCenterPage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab('categories')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-              activeTab === 'categories' ? 'shadow-md' : ''
-            }`}
-            style={{
-              background: activeTab === 'categories' ? 'var(--accent-grad)' : 'var(--surface)',
-              color: activeTab === 'categories' ? '#ffffff' : 'var(--text-muted)',
-            }}
-          >
-            Categories
-          </button>
-          <button
-            onClick={() => setActiveTab('in-progress')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-              activeTab === 'in-progress' ? 'shadow-md' : ''
-            }`}
-            style={{
-              background: activeTab === 'in-progress' ? 'var(--accent-grad)' : 'var(--surface)',
-              color: activeTab === 'in-progress' ? '#ffffff' : 'var(--text-muted)',
-            }}
-          >
-            In Progress
-          </button>
-          <button
-            onClick={() => setActiveTab('bookmarks')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-              activeTab === 'bookmarks' ? 'shadow-md' : ''
-            }`}
-            style={{
-              background: activeTab === 'bookmarks' ? 'var(--accent-grad)' : 'var(--surface)',
-              color: activeTab === 'bookmarks' ? '#ffffff' : 'var(--text-muted)',
-            }}
-          >
-            Bookmarks
-          </button>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                activeTab === 'categories' ? 'shadow-md' : ''
+              }`}
+              style={{
+                background: activeTab === 'categories' ? 'var(--accent-grad)' : 'var(--surface)',
+                color: activeTab === 'categories' ? '#ffffff' : 'var(--text-muted)',
+              }}
+            >
+              Categories
+            </button>
+            <button
+              onClick={() => setActiveTab('in-progress')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                activeTab === 'in-progress' ? 'shadow-md' : ''
+              }`}
+              style={{
+                background: activeTab === 'in-progress' ? 'var(--accent-grad)' : 'var(--surface)',
+                color: activeTab === 'in-progress' ? '#ffffff' : 'var(--text-muted)',
+              }}
+            >
+              In Progress
+            </button>
+            <button
+              onClick={() => setActiveTab('bookmarks')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                activeTab === 'bookmarks' ? 'shadow-md' : ''
+              }`}
+              style={{
+                background: activeTab === 'bookmarks' ? 'var(--accent-grad)' : 'var(--surface)',
+                color: activeTab === 'bookmarks' ? '#ffffff' : 'var(--text-muted)',
+              }}
+            >
+              Bookmarks
+            </button>
+          </div>
+
+          {canUpload && (
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white transition-all"
+              style={{ background: 'var(--accent-grad)' }}
+              onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
+            >
+              <Plus size={18} />
+              <span>Upload Course</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -378,6 +471,149 @@ export default function LearningCenterPage() {
           </div>
         )}
       </main>
+
+      {showUploadModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0, 0, 0, 0.7)' }}
+          onClick={() => setShowUploadModal(false)}
+        >
+          <div
+            className="rounded-xl p-6 w-full max-w-md"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold" style={{ color: 'var(--text)' }}>
+                Upload New Course
+              </h2>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="p-1 rounded transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+                  Course Title
+                </label>
+                <input
+                  type="text"
+                  value={uploadForm.title}
+                  onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                  placeholder="Enter course title"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+                  Description
+                </label>
+                <textarea
+                  value={uploadForm.description}
+                  onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg resize-none"
+                  rows={4}
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                  placeholder="Enter course description"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+                  Category
+                </label>
+                <input
+                  type="text"
+                  value={uploadForm.category}
+                  onChange={(e) => setUploadForm({ ...uploadForm, category: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                  placeholder="e.g., Marketing, Technical, Fundamentals"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+                  Cover Image URL (optional)
+                </label>
+                <input
+                  type="text"
+                  value={uploadForm.cover_image_url}
+                  onChange={(e) => setUploadForm({ ...uploadForm, cover_image_url: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowUploadModal(false)}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-muted)',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--text-muted)'}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUploadCourse}
+                  disabled={uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium text-sm text-white transition-all"
+                  style={{
+                    background: uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category
+                      ? 'var(--border)'
+                      : 'var(--accent-grad)',
+                    cursor: uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category
+                      ? 'not-allowed'
+                      : 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!uploading && uploadForm.title && uploadForm.description && uploadForm.category) {
+                      e.currentTarget.style.filter = 'brightness(1.1)';
+                    }
+                  }}
+                  onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
+                >
+                  {uploading ? 'Uploading...' : 'Upload Course'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
