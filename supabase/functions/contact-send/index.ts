@@ -19,6 +19,8 @@ async function createAirtableRecord(fields: Record<string, unknown>): Promise<vo
     throw new Error("Airtable configuration missing. Please configure AIRTABLE_TOKEN, AIRTABLE_BASE, and AIRTABLE_TABLE environment variables.");
   }
 
+  console.log(`Attempting to connect to Airtable Base: ${AIRTABLE_BASE}, Table: ${AIRTABLE_TABLE}`);
+
   const url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${encodeURIComponent(AIRTABLE_TABLE)}`;
   const res = await fetch(url, {
     method: "POST",
@@ -31,8 +33,20 @@ async function createAirtableRecord(fields: Record<string, unknown>): Promise<vo
 
   if (!res.ok) {
     const text = await res.text();
+    console.error(`Airtable API Error: Status ${res.status}, Response: ${text}`);
+    
+    if (res.status === 404) {
+      throw new Error(`Airtable base or table not found. Please verify your AIRTABLE_BASE (${AIRTABLE_BASE}) and AIRTABLE_TABLE (${AIRTABLE_TABLE}) are correct, and that your token has access to this base.`);
+    } else if (res.status === 401) {
+      throw new Error("Airtable authentication failed. Please verify your AIRTABLE_TOKEN is valid.");
+    } else if (res.status === 422) {
+      throw new Error(`Airtable field validation error: ${text}. Make sure your Airtable table has fields named: Name, Mail, Subject, Message, Status`);
+    }
+    
     throw new Error(`Airtable error (${res.status}): ${text}`);
   }
+
+  console.log("Successfully saved to Airtable");
 }
 
 Deno.serve(async (req: Request) => {
