@@ -13,19 +13,14 @@ const CallToAction: React.FC = () => {
 
   const benefits = [
     {
-      icon: <Users size={24} />,
-      title: "Brotherhood Network Access",
-      description: "Connect with top-tier entrepreneurs and industry leaders",
-    },
-    {
       icon: <Award size={24} />,
-      title: "Revenue Sharing",
-      description: "Earn substantial income teaching what you've mastered",
+      title: "Revenue Share",
+      description: "Earn fairly by sharing your expertise. With every lesson created and every student mentored, you reap the rewards.",
     },
     {
       icon: <BookOpen size={24} />,
-      title: "Curriculum Support",
-      description: "Full resources and support to create impactful courses",
+      title: "Curriculum Development Support",
+      description: "We help you turn your experience into effective learning programs. You bring the expertise, we take care of the structure and platform.",
     },
   ];
 
@@ -53,8 +48,7 @@ const CallToAction: React.FC = () => {
             animate={inView ? { opacity: 1 } : { opacity: 0 }}
             transition={{ delay: 0.4, duration: 0.8 }}
           >
-            Are you a master in your field? Join our brotherhood of faculty and help forge the next generation
-            of unstoppable leaders while building your own legacy.
+            Become part of a growing academy where instructors share their practical skills and help beginners progress quickly. Whether you specialize in business, copywriting, crypto trading, fitness, or something completely new, your knowledge can become its own campus here.
           </motion.p>
         </motion.div>
 
@@ -102,10 +96,10 @@ const CallToAction: React.FC = () => {
             >
               <h4 className="text-lg font-bold text-purple-400 mb-2">REQUIREMENTS</h4>
               <p className="text-gray-300 text-sm">
-                • Proven expertise in Business, Crypto Trading, Copywriting, or Fitness<br />
-                • Track record of success and results<br />
-                • Passion for teaching and mentoring high-achievers<br />
-                • Commitment to excellence and continuous improvement
+                • Proven expertise in business, copywriting, crypto, fitness, or another valuable skill<br />
+                • Proven track record and practical experience<br />
+                • Passion for teaching and empowering newcomers<br />
+                • Commitment to continuous learning and excellence
               </p>
             </motion.div>
           </motion.div>
@@ -132,12 +126,11 @@ const CallToAction: React.FC = () => {
               </motion.div>
 
               <h3 className="text-3xl md:text-4xl font-black mb-6 bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-                APPLY TODAY
+                APPLY NOW
               </h3>
 
               <p className="text-lg text-gray-300 mb-8 leading-relaxed">
-                Join an exclusive group of world-class instructors shaping the future. 
-                Your expertise + our platform = Unstoppable impact.
+                Join our mission to create a place where every useful skill finds a teacher and every student finds their path. Your expertise + our platform = lasting impact.
               </p>
 
               <motion.button
@@ -146,7 +139,7 @@ const CallToAction: React.FC = () => {
                 className="group relative w-full py-6 px-8 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl font-bold text-xl text-white overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/25"
               >
                 <span className="relative z-10 flex items-center justify-center space-x-3">
-                  <span>SUBMIT APPLICATION</span>
+                  <span>Contact us</span>
                   <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform duration-300" />
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
