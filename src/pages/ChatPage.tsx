@@ -1628,7 +1628,7 @@ export default function ChatPage() {
       </main>
 
       {/* Member List Sidebar - Only show for servers, not for friends */}
-      {viewMode === 'servers' && showMemberList && <MemberList serverId={selectedServer} />}
+      {viewMode === 'servers' && showMemberList && <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />}
     </div>
   );
 }

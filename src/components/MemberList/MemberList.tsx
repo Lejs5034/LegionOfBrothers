@@ -36,30 +36,55 @@ const adjustColorBrightness = (hex: string, percent: number) => {
 export default function MemberList({ serverId }: MemberListProps) {
   const [membersByRole, setMembersByRole] = useState<MembersByRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
 
   const loadMembers = async () => {
     setLoading(true);
     setMembersByRole([]);
+    setError('');
 
     try {
-      const { data: serverData } = await supabase
+      const { data: serverData, error: serverError } = await supabase
         .from('servers')
         .select('id, slug')
         .eq('slug', serverId)
         .maybeSingle();
 
-      if (!serverData) {
+      if (serverError) {
+        console.error('Error loading server:', serverError);
+        setError(`Failed to load server: ${serverError.message}`);
         setLoading(false);
         return;
       }
 
-      const { data: roles } = await supabase
+      if (!serverData) {
+        console.error('Server not found:', serverId);
+        setError(`Server not found: ${serverId}`);
+        setLoading(false);
+        return;
+      }
+
+      const { data: roles, error: rolesError } = await supabase
         .from('server_roles')
         .select('*')
         .eq('server_id', serverData.id)
         .order('rank', { ascending: true });
 
-      const { data: members } = await supabase
+      if (rolesError) {
+        console.error('Error loading roles:', rolesError);
+        setError(`Failed to load roles: ${rolesError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      if (!roles || roles.length === 0) {
+        console.warn('No roles found for server:', serverId);
+        setMembersByRole([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: members, error: membersError } = await supabase
         .from('server_members')
         .select(`
           user_id,
@@ -71,7 +96,9 @@ export default function MemberList({ serverId }: MemberListProps) {
         `)
         .eq('server_id', serverData.id);
 
-      if (!roles || !members) {
+      if (membersError) {
+        console.error('Error loading members:', membersError);
+        setError(`Failed to load members: ${membersError.message}`);
         setLoading(false);
         return;
       }
@@ -80,11 +107,11 @@ export default function MemberList({ serverId }: MemberListProps) {
 
       const groupedMembers: MembersByRole[] = roles.map(role => ({
         role,
-        members: members
+        members: (members || [])
           .filter(m => m.role_id === role.id)
           .map(m => ({
-            id: (m.profiles as any).id,
-            username: (m.profiles as any).username,
+            id: (m.profiles as any)?.id || '',
+            username: (m.profiles as any)?.username || 'Unknown',
             role_id: m.role_id,
             role: roleMap.get(m.role_id || '') || undefined,
           }))
@@ -127,6 +154,22 @@ export default function MemberList({ serverId }: MemberListProps) {
     return (
       <div className="w-60 flex items-center justify-center" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}>
         <div style={{ color: 'var(--text-muted)' }}>Loading members...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-60 flex flex-col items-center justify-center p-4" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}>
+        <div className="text-sm text-center" style={{ color: '#ef4444' }}>{error}</div>
+      </div>
+    );
+  }
+
+  if (membersByRole.length === 0) {
+    return (
+      <div className="w-60 flex flex-col items-center justify-center p-4" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}>
+        <div className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>No roles configured for this server</div>
       </div>
     );
   }
