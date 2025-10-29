@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 const corsHeaders = {
@@ -7,19 +8,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-// Rate limiting storage (IP -> last request timestamp)
 const rateLimitMap = new Map<string, number>();
-const RATE_LIMIT_WINDOW = 60000; // 60 seconds
-
-// Clean up old entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, timestamp] of rateLimitMap.entries()) {
-    if (now - timestamp > RATE_LIMIT_WINDOW) {
-      rateLimitMap.delete(ip);
-    }
-  }
-}, 300000);
+const RATE_LIMIT_WINDOW = 60000;
+const SMTP_TIMEOUT = 15000;
 
 function escapeHtml(text: string): string {
   const map: Record<string, string> = {
@@ -80,6 +71,13 @@ function validateRequest(data: ContactRequest): string | null {
   return null;
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  const timeout = new Promise<T>((_, reject) => 
+    setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+  );
+  return Promise.race([promise, timeout]);
+}
+
 async function sendEmailViaSMTP(data: ContactRequest, useTLS: boolean): Promise<void> {
   const smtpPassword = Deno.env.get("SMTP_PASS");
   
@@ -91,19 +89,25 @@ async function sendEmailViaSMTP(data: ContactRequest, useTLS: boolean): Promise<
   
   try {
     if (useTLS) {
-      await client.connectTLS({
-        hostname: "mail.swizzonic.ch",
-        port: 465,
-        username: "support@legionofbrother.com",
-        password: smtpPassword,
-      });
+      await withTimeout(
+        client.connectTLS({
+          hostname: "mail.swizzonic.ch",
+          port: 465,
+          username: "support@legionofbrother.com",
+          password: smtpPassword,
+        }),
+        SMTP_TIMEOUT
+      );
     } else {
-      await client.connect({
-        hostname: "mail.swizzonic.ch",
-        port: 587,
-        username: "support@legionofbrother.com",
-        password: smtpPassword,
-      });
+      await withTimeout(
+        client.connect({
+          hostname: "mail.swizzonic.ch",
+          port: 587,
+          username: "support@legionofbrother.com",
+          password: smtpPassword,
+        }),
+        SMTP_TIMEOUT
+      );
     }
 
     const escapedName = escapeHtml(data.name);
@@ -155,17 +159,24 @@ async function sendEmailViaSMTP(data: ContactRequest, useTLS: boolean): Promise<
 </html>
 `;
 
-    await client.send({
-      from: "support@legionofbrother.com",
-      to: "support@legionofbrother.com",
-      subject: `Contact Form: ${data.subject}`,
-      content: htmlBody,
-      html: htmlBody,
-    });
+    await withTimeout(
+      client.send({
+        from: "support@legionofbrother.com",
+        to: "support@legionofbrother.com",
+        subject: `Contact Form: ${data.subject}`,
+        content: htmlBody,
+        html: htmlBody,
+      }),
+      SMTP_TIMEOUT
+    );
 
     await client.close();
   } catch (error) {
-    await client.close();
+    try {
+      await client.close();
+    } catch (e) {
+      // Ignore close errors
+    }
     throw error;
   }
 }
@@ -186,7 +197,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Rate limiting
     const clientIP = req.headers.get("x-forwarded-for") || "unknown";
     const now = Date.now();
     const lastRequest = rateLimitMap.get(clientIP);
@@ -204,7 +214,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse and validate request
     const data: ContactRequest = await req.json();
     const validationError = validateRequest(data);
 
@@ -215,26 +224,59 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Try sending via TLS (port 465) first, fallback to STARTTLS (port 587)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { error: dbError } = await supabase
+      .from('contact_messages')
+      .insert({
+        name: data.name,
+        email: data.email,
+        subject: data.subject,
+        message: data.message,
+      });
+
+    if (dbError) {
+      console.error('Failed to save to database:', dbError);
+    }
+
+    let emailSent = false;
+    let emailError: Error | null = null;
+
     try {
       await sendEmailViaSMTP(data, true);
+      emailSent = true;
     } catch (tlsError) {
       console.error("TLS connection failed, trying STARTTLS:", tlsError);
       try {
         await sendEmailViaSMTP(data, false);
+        emailSent = true;
       } catch (starttlsError) {
         console.error("STARTTLS connection also failed:", starttlsError);
-        throw new Error("Failed to send email via SMTP");
+        emailError = starttlsError as Error;
       }
     }
 
-    // Update rate limit
     rateLimitMap.set(clientIP, now);
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    if (emailSent || !dbError) {
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } else {
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to send message. Please try again later." 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
   } catch (error) {
     console.error("Error processing contact form:", error);
     return new Response(
