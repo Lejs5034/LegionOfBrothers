@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2 } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import FriendRequest from '../components/FriendRequest/FriendRequest';
 
 interface Message {
   id: string;
@@ -50,6 +51,7 @@ export default function ChatPage() {
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [channelsError, setChannelsError] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showFriendRequests, setShowFriendRequests] = useState(false);
   const [username, setUsername] = useState<string>('');
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -628,13 +630,31 @@ export default function ChatPage() {
         </div>
       )}
 
+      {/* Friend Requests Modal */}
+      {showFriendRequests && (
+        <FriendRequest userId={userId} onClose={() => setShowFriendRequests(false)} />
+      )}
+
       {/* Chat section */}
       <main className="grid grid-rows-[auto_1fr_auto] overflow-hidden">
-        <div className="px-6 py-4 flex items-center space-x-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
-          <Hash size={20} style={{ color: 'var(--text-muted)' }} />
-          <h2 className="font-semibold text-lg capitalize" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
-            {selectedChannel?.name || 'Select a channel'}
-          </h2>
+        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center space-x-2">
+            <Hash size={20} style={{ color: 'var(--text-muted)' }} />
+            <h2 className="font-semibold text-lg capitalize" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+              {selectedChannel?.name || 'Select a channel'}
+            </h2>
+          </div>
+          <button
+            onClick={() => setShowFriendRequests(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200"
+            style={{ background: 'var(--accent)', color: 'white' }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            title="Friend Requests"
+          >
+            <UserPlus size={18} />
+            <span>Friends</span>
+          </button>
         </div>
 
         <div className="p-6 overflow-y-auto flex flex-col gap-3">
