@@ -851,6 +851,37 @@ export default function ChatPage() {
           </p>
         </div>
 
+        {viewMode === 'servers' && currentServer && (
+          <div className="px-3 py-2">
+            <button
+              onClick={() => navigate(`/servers/${serverSlugs[selectedServer as keyof typeof serverSlugs]}/learning`)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm text-white transition-all duration-200"
+              style={{
+                background: `linear-gradient(135deg, ${getGradientColors(currentServer.gradient)})`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.filter = 'brightness(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.filter = 'brightness(1)';
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.98)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              aria-label={`Open Courses for ${currentServer.name}`}
+            >
+              {(() => {
+                const Icon = currentServer.icon;
+                return <Icon size={18} />;
+              })()}
+              <span>Courses</span>
+            </button>
+          </div>
+        )}
+
         <nav className="px-2 py-3 space-y-1 overflow-y-auto flex-1">
           {viewMode === 'servers' ? (
             <>

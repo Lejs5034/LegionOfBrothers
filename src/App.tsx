@@ -11,6 +11,7 @@ import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
 import DashboardPage from './pages/DashboardPage';
 import ChatPage from './pages/ChatPage';
+import LearningCenterPage from './pages/LearningCenterPage';
 
 const HomePage = () => (
   <>
@@ -25,7 +26,7 @@ const HomePage = () => (
 function App() {
   const location = useLocation();
   const hiddenNavRoutes = ['/chat'];
-  const showNav = !hiddenNavRoutes.includes(location.pathname);
+  const showNav = !hiddenNavRoutes.includes(location.pathname) && !location.pathname.startsWith('/servers/');
 
   return (
     <div className="bg-black text-white overflow-x-hidden">
@@ -36,6 +37,7 @@ function App() {
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/chat" element={<ChatPage />} />
+        <Route path="/servers/:serverId/learning" element={<LearningCenterPage />} />
       </Routes>
     </div>
   );
