@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 
@@ -10,6 +10,7 @@ interface Message {
   user_id: string;
   channel_id: string;
   created_at: string;
+  edited_at?: string | null;
   profiles?: {
     username: string;
   };
@@ -37,6 +38,7 @@ interface DirectMessage {
   content: string;
   read: boolean;
   created_at: string;
+  edited_at?: string | null;
   sender?: {
     username: string;
   };
@@ -84,6 +86,10 @@ export default function ChatPage() {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessageContent, setEditingMessageContent] = useState('');
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [showMessageMenu, setShowMessageMenu] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -463,6 +469,98 @@ export default function ChatPage() {
   const handleFriendClick = (friend: Friend) => {
     setSelectedFriend(friend);
     setDirectMessages([]);
+  };
+
+  const handleEditMessage = (messageId: string, content: string) => {
+    setEditingMessageId(messageId);
+    setEditingMessageContent(content);
+    setShowMessageMenu(null);
+  };
+
+  const handleCancelMessageEdit = () => {
+    setEditingMessageId(null);
+    setEditingMessageContent('');
+  };
+
+  const handleSaveMessageEdit = async () => {
+    if (!editingMessageId || !editingMessageContent.trim()) return;
+
+    try {
+      if (viewMode === 'servers') {
+        const { error } = await supabase
+          .from('messages')
+          .update({
+            content: editingMessageContent.trim(),
+            edited_at: new Date().toISOString(),
+          })
+          .eq('id', editingMessageId);
+
+        if (error) throw error;
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === editingMessageId
+              ? { ...msg, content: editingMessageContent.trim(), edited_at: new Date().toISOString() }
+              : msg
+          )
+        );
+      } else {
+        const { error } = await supabase
+          .from('direct_messages')
+          .update({
+            content: editingMessageContent.trim(),
+            edited_at: new Date().toISOString(),
+          })
+          .eq('id', editingMessageId);
+
+        if (error) throw error;
+
+        setDirectMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === editingMessageId
+              ? { ...msg, content: editingMessageContent.trim(), edited_at: new Date().toISOString() }
+              : msg
+          )
+        );
+      }
+
+      setEditingMessageId(null);
+      setEditingMessageContent('');
+    } catch (error: any) {
+      console.error('Error editing message:', error);
+      alert(`Failed to edit message: ${error.message}`);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) return;
+
+    try {
+      if (viewMode === 'servers') {
+        const { error } = await supabase
+          .from('messages')
+          .delete()
+          .eq('id', messageId);
+
+        if (error) throw error;
+
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      } else {
+        const { error } = await supabase
+          .from('direct_messages')
+          .delete()
+          .eq('id', messageId);
+
+        if (error) throw error;
+
+        setDirectMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      }
+
+      setShowMessageMenu(null);
+    } catch (error: any) {
+      console.error('Error deleting message:', error);
+      alert(`Failed to delete message: ${error.message}`);
+    }
   };
 
   const handleEditField = (field: string, currentValue: string) => {
@@ -961,24 +1059,94 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : (
-              messages.map((message) => (
-                <div key={message.id} className="message flex gap-3">
-                  <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
-                    {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-semibold" style={{ color: 'var(--text)' }}>
-                        {message.profiles?.username || 'Unknown'}
-                      </span>
-                      <span className="timestamp">
-                        {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+              messages.map((message) => {
+                const isOwnMessage = message.user_id === userId;
+                const isEditing = editingMessageId === message.id;
+                return (
+                  <div
+                    key={message.id}
+                    className="message flex gap-3 group relative"
+                    onMouseEnter={() => setHoveredMessageId(message.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                  >
+                    <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
+                      {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
                     </div>
-                    <p style={{ color: 'var(--text)' }}>{message.content}</p>
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-semibold" style={{ color: 'var(--text)' }}>
+                          {message.profiles?.username || 'Unknown'}
+                        </span>
+                        <span className="timestamp">
+                          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {message.edited_at && (
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            (edited)
+                          </span>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="text"
+                            value={editingMessageContent}
+                            onChange={(e) => setEditingMessageContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveMessageEdit();
+                              if (e.key === 'Escape') handleCancelMessageEdit();
+                            }}
+                            className="input-field flex-1 py-1 text-sm"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleSaveMessageEdit}
+                            className="p-1 rounded transition-colors"
+                            style={{ color: '#10b981' }}
+                            title="Save"
+                          >
+                            <Check size={18} />
+                          </button>
+                          <button
+                            onClick={handleCancelMessageEdit}
+                            className="p-1 rounded transition-colors"
+                            style={{ color: '#ef4444' }}
+                            title="Cancel"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      ) : (
+                        <p style={{ color: 'var(--text)' }}>{message.content}</p>
+                      )}
+                    </div>
+                    {isOwnMessage && !isEditing && hoveredMessageId === message.id && (
+                      <div className="absolute top-0 right-0 flex gap-1">
+                        <button
+                          onClick={() => handleEditMessage(message.id, message.content)}
+                          className="p-1 rounded transition-colors"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                          title="Edit message"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMessage(message.id)}
+                          className="p-1 rounded transition-colors"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                          title="Delete message"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )
           ) : (
             directMessages.length === 0 ? (
@@ -998,8 +1166,14 @@ export default function ChatPage() {
             ) : (
               directMessages.map((dm) => {
                 const isOwnMessage = dm.sender_id === userId;
+                const isEditing = editingMessageId === dm.id;
                 return (
-                  <div key={dm.id} className="message flex gap-3">
+                  <div
+                    key={dm.id}
+                    className="message flex gap-3 group relative"
+                    onMouseEnter={() => setHoveredMessageId(dm.id)}
+                    onMouseLeave={() => setHoveredMessageId(null)}
+                  >
                     <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
                       {isOwnMessage ? username[0]?.toUpperCase() : selectedFriend?.username[0].toUpperCase()}
                     </div>
@@ -1011,9 +1185,70 @@ export default function ChatPage() {
                         <span className="timestamp">
                           {new Date(dm.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
+                        {dm.edited_at && (
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            (edited)
+                          </span>
+                        )}
                       </div>
-                      <p style={{ color: 'var(--text)' }}>{dm.content}</p>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="text"
+                            value={editingMessageContent}
+                            onChange={(e) => setEditingMessageContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveMessageEdit();
+                              if (e.key === 'Escape') handleCancelMessageEdit();
+                            }}
+                            className="input-field flex-1 py-1 text-sm"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleSaveMessageEdit}
+                            className="p-1 rounded transition-colors"
+                            style={{ color: '#10b981' }}
+                            title="Save"
+                          >
+                            <Check size={18} />
+                          </button>
+                          <button
+                            onClick={handleCancelMessageEdit}
+                            className="p-1 rounded transition-colors"
+                            style={{ color: '#ef4444' }}
+                            title="Cancel"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      ) : (
+                        <p style={{ color: 'var(--text)' }}>{dm.content}</p>
+                      )}
                     </div>
+                    {isOwnMessage && !isEditing && hoveredMessageId === dm.id && (
+                      <div className="absolute top-0 right-0 flex gap-1">
+                        <button
+                          onClick={() => handleEditMessage(dm.id, dm.content)}
+                          className="p-1 rounded transition-colors"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                          title="Edit message"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMessage(dm.id)}
+                          className="p-1 rounded transition-colors"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                          title="Delete message"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })
