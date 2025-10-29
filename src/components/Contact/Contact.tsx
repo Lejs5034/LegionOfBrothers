@@ -35,7 +35,7 @@ const Contact: React.FC = () => {
     setError(null);
 
     try {
-      const { error } = await supabase.functions.invoke('contact-send', {
+      const { data, error } = await supabase.functions.invoke('contact-send', {
         body: {
           name: formData.name,
           email: formData.email,
@@ -45,15 +45,20 @@ const Contact: React.FC = () => {
       });
 
       if (error) {
+        console.error('Edge function error:', error);
         throw error;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       setIsSubmitted(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
       setTimeout(() => setIsSubmitted(false), 5000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Form submission error:', err);
-      setError('Failed to send message. Please try again.');
+      setError(err?.message || 'Failed to send message. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

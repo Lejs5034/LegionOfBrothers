@@ -6,15 +6,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const AIRTABLE_TOKEN = Deno.env.get("AIRTABLE_TOKEN")!;
-const AIRTABLE_BASE = Deno.env.get("AIRTABLE_BASE")!;
-const AIRTABLE_TABLE = Deno.env.get("AIRTABLE_TABLE")!;
-
 function escapeHTML(s: string): string {
   return s.replace(/[<>]/g, (c) => (c === "<" ? "&lt;" : "&gt;"));
 }
 
 async function createAirtableRecord(fields: Record<string, unknown>): Promise<void> {
+  const AIRTABLE_TOKEN = Deno.env.get("AIRTABLE_TOKEN");
+  const AIRTABLE_BASE = Deno.env.get("AIRTABLE_BASE");
+  const AIRTABLE_TABLE = Deno.env.get("AIRTABLE_TABLE");
+
+  if (!AIRTABLE_TOKEN || !AIRTABLE_BASE || !AIRTABLE_TABLE) {
+    throw new Error("Airtable configuration missing. Please configure AIRTABLE_TOKEN, AIRTABLE_BASE, and AIRTABLE_TABLE environment variables.");
+  }
+
   const url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${encodeURIComponent(AIRTABLE_TABLE)}`;
   const res = await fetch(url, {
     method: "POST",
@@ -27,7 +31,7 @@ async function createAirtableRecord(fields: Record<string, unknown>): Promise<vo
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Airtable ${res.status}: ${text}`);
+    throw new Error(`Airtable error (${res.status}): ${text}`);
   }
 }
 
@@ -63,7 +67,7 @@ Deno.serve(async (req: Request) => {
     const message = String(body.message ?? "").trim();
 
     if (!name || !email || !subject || !message) {
-      return new Response(JSON.stringify({ error: "Missing fields" }), {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -82,9 +86,10 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("Airtable error:", err);
-    return new Response(JSON.stringify({ error: "Airtable insert failed" }), {
-      status: 502,
+    console.error("Error:", err);
+    const errorMessage = err instanceof Error ? err.message : "Failed to process request";
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
