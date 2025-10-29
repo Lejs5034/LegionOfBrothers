@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 
@@ -19,6 +19,30 @@ interface Channel {
   id: string;
   name: string;
   server_id: string;
+}
+
+interface Friend {
+  id: string;
+  username: string;
+  avatar_url?: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unreadCount?: number;
+}
+
+interface DirectMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  read: boolean;
+  created_at: string;
+  sender?: {
+    username: string;
+  };
+  receiver?: {
+    username: string;
+  };
 }
 
 const serverSlugs = {
@@ -42,10 +66,14 @@ export default function ChatPage() {
   const [ready, setReady] = useState(false);
   const [userEmail, setUserEmail] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'servers' | 'friends'>('servers');
   const [selectedServer, setSelectedServer] = useState('business');
+  const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingChannels, setLoadingChannels] = useState(false);
@@ -135,8 +163,64 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!ready) return;
-    loadChannels();
-  }, [ready, selectedServer, loadChannels]);
+    if (viewMode === 'servers') {
+      loadChannels();
+    }
+  }, [ready, selectedServer, loadChannels, viewMode]);
+
+  const loadFriends = useCallback(async () => {
+    if (!userId) return;
+
+    const { data } = await supabase
+      .from('friend_requests')
+      .select(`
+        id,
+        sender_id,
+        receiver_id,
+        sender:sender_id(id, username, avatar_url),
+        receiver:receiver_id(id, username, avatar_url)
+      `)
+      .eq('status', 'accepted')
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+
+    if (data) {
+      const friendsList: Friend[] = await Promise.all(
+        data.map(async (req: any) => {
+          const friend = req.sender_id === userId ? req.receiver : req.sender;
+
+          const { data: lastMsg } = await supabase
+            .from('direct_messages')
+            .select('content, created_at')
+            .or(`and(sender_id.eq.${userId},receiver_id.eq.${friend.id}),and(sender_id.eq.${friend.id},receiver_id.eq.${userId})`)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const { count } = await supabase
+            .from('direct_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('sender_id', friend.id)
+            .eq('receiver_id', userId)
+            .eq('read', false);
+
+          return {
+            id: friend.id,
+            username: friend.username,
+            avatar_url: friend.avatar_url,
+            lastMessage: lastMsg?.content,
+            lastMessageTime: lastMsg?.created_at,
+            unreadCount: count || 0,
+          };
+        })
+      );
+      setFriends(friendsList);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!ready || viewMode !== 'friends') return;
+    loadFriends();
+  }, [ready, viewMode, loadFriends]);
 
   const loadMessages = useCallback(async () => {
     if (!selectedChannel) return;
@@ -211,33 +295,149 @@ export default function ChatPage() {
     return unsubscribe;
   }, [selectedChannel, loadMessages, subscribeToMessages]);
 
+  const loadDirectMessages = useCallback(async () => {
+    if (!selectedFriend) return;
+
+    const { data } = await supabase
+      .from('direct_messages')
+      .select(`
+        *,
+        sender:sender_id(username),
+        receiver:receiver_id(username)
+      `)
+      .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedFriend.id}),and(sender_id.eq.${selectedFriend.id},receiver_id.eq.${userId})`)
+      .order('created_at', { ascending: true });
+
+    if (data) {
+      setDirectMessages(data as DirectMessage[]);
+
+      await supabase
+        .from('direct_messages')
+        .update({ read: true })
+        .eq('sender_id', selectedFriend.id)
+        .eq('receiver_id', userId)
+        .eq('read', false);
+    }
+  }, [selectedFriend, userId]);
+
+  const subscribeToDirectMessages = useCallback(() => {
+    if (!selectedFriend) return;
+
+    const channelName = `dm-${userId}-${selectedFriend.id}`;
+
+    const subscription = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+          filter: `sender_id=eq.${selectedFriend.id},receiver_id=eq.${userId}`,
+        },
+        async (payload) => {
+          const { data: senderData } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', payload.new.sender_id)
+            .maybeSingle();
+
+          const newMessage = {
+            ...payload.new,
+            sender: senderData,
+          } as DirectMessage;
+
+          setDirectMessages((prev) => [...prev, newMessage]);
+
+          await supabase
+            .from('direct_messages')
+            .update({ read: true })
+            .eq('id', payload.new.id);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+          filter: `sender_id=eq.${userId},receiver_id=eq.${selectedFriend.id}`,
+        },
+        async (payload) => {
+          const { data: receiverData } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', payload.new.receiver_id)
+            .maybeSingle();
+
+          const newMessage = {
+            ...payload.new,
+            receiver: receiverData,
+          } as DirectMessage;
+
+          setDirectMessages((prev) => [...prev, newMessage]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [selectedFriend, userId]);
+
+  useEffect(() => {
+    if (!selectedFriend) return;
+    loadDirectMessages();
+    const unsubscribe = subscribeToDirectMessages();
+    return unsubscribe;
+  }, [selectedFriend, loadDirectMessages, subscribeToDirectMessages]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, directMessages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageInput.trim() || !selectedChannel || loading) return;
+    if (!messageInput.trim() || loading) return;
+
+    if (viewMode === 'servers' && !selectedChannel) return;
+    if (viewMode === 'friends' && !selectedFriend) return;
 
     setLoading(true);
     try {
-      console.log('Attempting to send message to channel:', selectedChannel);
-      const { data, error } = await supabase.from('messages').insert({
-        channel_id: selectedChannel.id,
-        user_id: userId,
-        content: messageInput.trim(),
-      });
+      if (viewMode === 'servers' && selectedChannel) {
+        console.log('Attempting to send message to channel:', selectedChannel);
+        const { data, error } = await supabase.from('messages').insert({
+          channel_id: selectedChannel.id,
+          user_id: userId,
+          content: messageInput.trim(),
+        });
 
-      if (error) {
-        console.error('Error sending message:', error);
-        alert(`Failed to send message: ${error.message}`);
-      } else {
-        console.log('Message sent successfully:', data);
-        setMessageInput('');
+        if (error) {
+          console.error('Error sending message:', error);
+          alert(`Failed to send message: ${error.message}`);
+        } else {
+          console.log('Message sent successfully:', data);
+          setMessageInput('');
+        }
+      } else if (viewMode === 'friends' && selectedFriend) {
+        const { data, error } = await supabase.from('direct_messages').insert({
+          sender_id: userId,
+          receiver_id: selectedFriend.id,
+          content: messageInput.trim(),
+        });
+
+        if (error) {
+          console.error('Error sending direct message:', error);
+          alert(`Failed to send message: ${error.message}`);
+        } else {
+          console.log('Direct message sent successfully:', data);
+          setMessageInput('');
+        }
       }
     } catch (error) {
       console.error('Unexpected error sending message:', error);
@@ -253,9 +453,25 @@ export default function ChatPage() {
   };
 
   const handleServerChange = (serverId: string) => {
+    setViewMode('servers');
     setSelectedServer(serverId);
     setMessages([]);
     setSelectedChannel(null);
+    setSelectedFriend(null);
+    setDirectMessages([]);
+  };
+
+  const handleFriendsClick = () => {
+    setViewMode('friends');
+    setSelectedChannel(null);
+    setMessages([]);
+    setSelectedFriend(null);
+    setDirectMessages([]);
+  };
+
+  const handleFriendClick = (friend: Friend) => {
+    setSelectedFriend(friend);
+    setDirectMessages([]);
   };
 
   const handleEditField = (field: string, currentValue: string) => {
@@ -330,9 +546,18 @@ export default function ChatPage() {
     <div className="h-screen overflow-hidden grid grid-cols-[72px_240px_1fr]" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       {/* Server List */}
       <aside className="sidebar flex flex-col items-center py-3 gap-2 overflow-y-auto">
+        <button
+          onClick={handleFriendsClick}
+          className={`server-icon ${viewMode === 'friends' ? 'active' : ''}`}
+          title="Friends"
+          style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
+        >
+          <Users size={24} className="text-white" />
+        </button>
+        <div className="w-8 h-px my-1" style={{ background: 'var(--border)' }} />
         {servers.map((server) => {
           const Icon = server.icon;
-          const isActive = selectedServer === server.id;
+          const isActive = viewMode === 'servers' && selectedServer === server.id;
           return (
             <button
               key={server.id}
@@ -347,42 +572,100 @@ export default function ChatPage() {
         })}
       </aside>
 
-      {/* Channel Sidebar */}
+      {/* Channel/Friends Sidebar */}
       <aside className="sidebar flex flex-col overflow-hidden">
         <div className="p-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <h1 className="font-bold text-lg" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
-            {currentServer?.name}
+            {viewMode === 'friends' ? 'Friends' : currentServer?.name}
           </h1>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>The Legion Community</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            {viewMode === 'friends' ? 'Direct Messages' : 'The Legion Community'}
+          </p>
         </div>
 
         <nav className="px-2 py-3 space-y-1 overflow-y-auto flex-1">
-          <div className="text-xs font-semibold px-3 py-2 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-            Channels
-          </div>
-          {loadingChannels ? (
-            <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              Loading channels...
-            </div>
-          ) : channelsError ? (
-            <div className="px-3 py-2 text-sm" style={{ color: '#ef4444' }}>
-              {channelsError}
-            </div>
-          ) : channels.length === 0 ? (
-            <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              No channels available
-            </div>
-          ) : (
-            channels.map((channel) => (
-              <div
-                key={channel.id}
-                onClick={() => setSelectedChannel(channel)}
-                className={`channel-item flex items-center space-x-2 ${selectedChannel?.id === channel.id ? 'active' : ''}`}
-              >
-                <Hash size={18} />
-                <span className="capitalize">{channel.name}</span>
+          {viewMode === 'servers' ? (
+            <>
+              <div className="text-xs font-semibold px-3 py-2 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                Channels
               </div>
-            ))
+              {loadingChannels ? (
+                <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Loading channels...
+                </div>
+              ) : channelsError ? (
+                <div className="px-3 py-2 text-sm" style={{ color: '#ef4444' }}>
+                  {channelsError}
+                </div>
+              ) : channels.length === 0 ? (
+                <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  No channels available
+                </div>
+              ) : (
+                channels.map((channel) => (
+                  <div
+                    key={channel.id}
+                    onClick={() => setSelectedChannel(channel)}
+                    className={`channel-item flex items-center space-x-2 ${selectedChannel?.id === channel.id ? 'active' : ''}`}
+                  >
+                    <Hash size={18} />
+                    <span className="capitalize">{channel.name}</span>
+                  </div>
+                ))
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                  Direct Messages
+                </div>
+                <button
+                  onClick={() => setShowFriendRequests(true)}
+                  className="p-1 rounded transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  title="Add Friend"
+                >
+                  <UserPlus size={16} />
+                </button>
+              </div>
+              {friends.length === 0 ? (
+                <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  No friends yet. Add some friends to start chatting!
+                </div>
+              ) : (
+                friends.map((friend) => (
+                  <div
+                    key={friend.id}
+                    onClick={() => handleFriendClick(friend)}
+                    className={`channel-item flex items-center justify-between ${selectedFriend?.id === friend.id ? 'active' : ''}`}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="size-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'var(--accent-grad)' }}>
+                        {friend.username[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
+                          {friend.username}
+                        </div>
+                        {friend.lastMessage && (
+                          <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                            {friend.lastMessage}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {friend.unreadCount! > 0 && (
+                      <div className="size-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'var(--accent)', color: 'white' }}>
+                        {friend.unreadCount}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </>
           )}
         </nav>
 
@@ -639,56 +922,111 @@ export default function ChatPage() {
       <main className="grid grid-rows-[auto_1fr_auto] overflow-hidden">
         <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center space-x-2">
-            <Hash size={20} style={{ color: 'var(--text-muted)' }} />
-            <h2 className="font-semibold text-lg capitalize" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
-              {selectedChannel?.name || 'Select a channel'}
-            </h2>
+            {viewMode === 'servers' ? (
+              <>
+                <Hash size={20} style={{ color: 'var(--text-muted)' }} />
+                <h2 className="font-semibold text-lg capitalize" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+                  {selectedChannel?.name || 'Select a channel'}
+                </h2>
+              </>
+            ) : (
+              <>
+                <div className="size-10 rounded-full flex items-center justify-center text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
+                  {selectedFriend?.username[0].toUpperCase() || '?'}
+                </div>
+                <h2 className="font-semibold text-lg" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+                  {selectedFriend?.username || 'Select a friend'}
+                </h2>
+              </>
+            )}
           </div>
-          <button
-            onClick={() => setShowFriendRequests(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200"
-            style={{ background: 'var(--accent)', color: 'white' }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            title="Friend Requests"
-          >
-            <UserPlus size={18} />
-            <span>Friends</span>
-          </button>
+          {viewMode === 'servers' && (
+            <button
+              onClick={() => setShowFriendRequests(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200"
+              style={{ background: 'var(--accent)', color: 'white' }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              title="Friend Requests"
+            >
+              <UserPlus size={18} />
+              <span>Friends</span>
+            </button>
+          )}
         </div>
 
         <div className="p-6 overflow-y-auto flex flex-col gap-3">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-              <div className="size-16 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <Hash size={32} style={{ color: 'var(--text-muted)' }} />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Welcome to #{selectedChannel?.name}</h3>
-                <p style={{ color: 'var(--text-muted)' }}>
-                  No messages yet. Be the first to start the conversation!
-                </p>
-              </div>
-            </div>
-          ) : (
-            messages.map((message) => (
-              <div key={message.id} className="message flex gap-3">
-                <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
-                  {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
+          {viewMode === 'servers' ? (
+            messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                <div className="size-16 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <Hash size={32} style={{ color: 'var(--text-muted)' }} />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-semibold" style={{ color: 'var(--text)' }}>
-                      {message.profiles?.username || 'Unknown'}
-                    </span>
-                    <span className="timestamp">
-                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                <div>
+                  <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Welcome to #{selectedChannel?.name}</h3>
+                  <p style={{ color: 'var(--text-muted)' }}>
+                    No messages yet. Be the first to start the conversation!
+                  </p>
+                </div>
+              </div>
+            ) : (
+              messages.map((message) => (
+                <div key={message.id} className="message flex gap-3">
+                  <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
+                    {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
                   </div>
-                  <p style={{ color: 'var(--text)' }}>{message.content}</p>
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-semibold" style={{ color: 'var(--text)' }}>
+                        {message.profiles?.username || 'Unknown'}
+                      </span>
+                      <span className="timestamp">
+                        {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p style={{ color: 'var(--text)' }}>{message.content}</p>
+                  </div>
+                </div>
+              ))
+            )
+          ) : (
+            directMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                <div className="size-16 rounded-full flex items-center justify-center text-white font-bold text-2xl" style={{ background: 'var(--accent-grad)' }}>
+                  {selectedFriend?.username[0].toUpperCase() || '?'}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>
+                    {selectedFriend ? `Chat with ${selectedFriend.username}` : 'Select a friend'}
+                  </h3>
+                  <p style={{ color: 'var(--text-muted)' }}>
+                    {selectedFriend ? 'No messages yet. Start the conversation!' : 'Choose a friend from the list to start chatting'}
+                  </p>
                 </div>
               </div>
-            ))
+            ) : (
+              directMessages.map((dm) => {
+                const isOwnMessage = dm.sender_id === userId;
+                return (
+                  <div key={dm.id} className="message flex gap-3">
+                    <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
+                      {isOwnMessage ? username[0]?.toUpperCase() : selectedFriend?.username[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-semibold" style={{ color: 'var(--text)' }}>
+                          {isOwnMessage ? username : selectedFriend?.username}
+                        </span>
+                        <span className="timestamp">
+                          {new Date(dm.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p style={{ color: 'var(--text)' }}>{dm.content}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -697,16 +1035,33 @@ export default function ChatPage() {
           <form onSubmit={handleSendMessage} className="flex gap-2">
             <input
               className="input-field flex-1"
-              placeholder={`Message #${selectedChannel?.name || 'channel'}`}
+              placeholder={
+                viewMode === 'servers'
+                  ? `Message #${selectedChannel?.name || 'channel'}`
+                  : `Message ${selectedFriend?.username || 'friend'}`
+              }
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
-              disabled={!selectedChannel || loading}
+              disabled={(viewMode === 'servers' && !selectedChannel) || (viewMode === 'friends' && !selectedFriend) || loading}
             />
             <button
               type="submit"
-              disabled={!messageInput.trim() || !selectedChannel || loading}
+              disabled={
+                !messageInput.trim() ||
+                (viewMode === 'servers' && !selectedChannel) ||
+                (viewMode === 'friends' && !selectedFriend) ||
+                loading
+              }
               className="btn-primary flex items-center gap-2"
-              style={{ opacity: (!messageInput.trim() || !selectedChannel || loading) ? 0.5 : 1 }}
+              style={{
+                opacity:
+                  !messageInput.trim() ||
+                  (viewMode === 'servers' && !selectedChannel) ||
+                  (viewMode === 'friends' && !selectedFriend) ||
+                  loading
+                    ? 0.5
+                    : 1,
+              }}
             >
               <Send size={18} />
             </button>
