@@ -521,6 +521,7 @@ export default function ChatPage() {
           console.log('Message sent successfully:', data);
           if (selectedFiles.length > 0 && data) {
             await uploadFiles(data.id, false);
+            await loadMessages();
           }
           setMessageInput('');
         }
@@ -546,9 +547,11 @@ export default function ChatPage() {
           console.log('Direct message sent successfully:', data);
           if (selectedFiles.length > 0 && data) {
             await uploadFiles(data.id, true);
+            await loadDirectMessages();
+          } else {
+            const newMessage = data as DirectMessage;
+            setDirectMessages((prev) => [...prev, newMessage]);
           }
-          const newMessage = data as DirectMessage;
-          setDirectMessages((prev) => [...prev, newMessage]);
           setMessageInput('');
         }
       }
