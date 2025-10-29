@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 
@@ -59,6 +59,7 @@ interface DirectMessage {
 }
 
 const serverSlugs = {
+  headquarters: 'headquarters',
   business: 'business-mastery',
   crypto: 'crypto-trading',
   copywriting: 'copywriting',
@@ -66,6 +67,7 @@ const serverSlugs = {
 };
 
 const servers = [
+  { id: 'headquarters', name: 'Headquarters', icon: Building2, gradient: '#fbbf24, #f59e0b', slug: 'headquarters' },
   { id: 'business', name: 'Business Mastery', icon: Briefcase, gradient: '#6ee7ff, #3b82f6', slug: 'business-mastery' },
   { id: 'crypto', name: 'Crypto Trading', icon: TrendingUp, gradient: '#34d399, #10b981', slug: 'crypto-trading' },
   { id: 'copywriting', name: 'Copywriting', icon: Pencil, gradient: '#fb923c, #ef4444', slug: 'copywriting' },
@@ -80,7 +82,7 @@ export default function ChatPage() {
   const [userEmail, setUserEmail] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
   const [viewMode, setViewMode] = useState<'servers' | 'friends'>('servers');
-  const [selectedServer, setSelectedServer] = useState('business');
+  const [selectedServer, setSelectedServer] = useState('headquarters');
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
