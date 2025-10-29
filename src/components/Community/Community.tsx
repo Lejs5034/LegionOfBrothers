@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
+import { useNavigate } from 'react-router-dom';
 import { Users2, Flame, Crown, Zap } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const Community: React.FC = () => {
+  const navigate = useNavigate();
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
@@ -146,9 +148,10 @@ const Community: React.FC = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-              <motion.button 
+              <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/sign-in')}
                 className="group relative px-10 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-full font-bold text-lg hover:scale-105 transition-transform duration-300 overflow-hidden"
               >
                 <span className="relative z-10">JOIN THE LEGION</span>
