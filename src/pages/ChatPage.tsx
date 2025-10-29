@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
+import MemberList from '../components/MemberList/MemberList';
 
 interface Attachment {
   id: string;
@@ -798,7 +799,11 @@ export default function ChatPage() {
   const currentServer = servers.find(s => s.id === selectedServer);
 
   return (
-    <div className="h-screen overflow-hidden grid grid-cols-[72px_240px_1fr]" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+    <div className="h-screen overflow-hidden grid" style={{
+      gridTemplateColumns: viewMode === 'servers' ? '72px 240px 1fr 240px' : '72px 240px 1fr',
+      background: 'var(--bg)',
+      color: 'var(--text)'
+    }}>
       {/* Server List */}
       <aside className="sidebar flex flex-col items-center py-3 gap-2 overflow-y-auto">
         <button
@@ -1605,6 +1610,9 @@ export default function ChatPage() {
           </form>
         </div>
       </main>
+
+      {/* Member List Sidebar - Only show for servers, not for friends */}
+      {viewMode === 'servers' && <MemberList serverId={selectedServer} />}
     </div>
   );
 }
