@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2 } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
@@ -106,8 +106,16 @@ export default function ChatPage() {
   const [showMessageMenu, setShowMessageMenu] = useState<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [showMemberList, setShowMemberList] = useState(() => {
+    const saved = localStorage.getItem('showMemberList');
+    return saved ? JSON.parse(saved) : true;
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('showMemberList', JSON.stringify(showMemberList));
+  }, [showMemberList]);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -800,7 +808,7 @@ export default function ChatPage() {
 
   return (
     <div className="h-screen overflow-hidden grid" style={{
-      gridTemplateColumns: viewMode === 'servers' ? '72px 240px 1fr 240px' : '72px 240px 1fr',
+      gridTemplateColumns: viewMode === 'servers' && showMemberList ? '72px 240px 1fr 240px' : '72px 240px 1fr',
       background: 'var(--bg)',
       color: 'var(--text)'
     }}>
@@ -1200,19 +1208,39 @@ export default function ChatPage() {
               </>
             )}
           </div>
-          {viewMode === 'servers' && (
-            <button
-              onClick={() => setShowFriendRequests(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200"
-              style={{ background: 'var(--accent)', color: 'white' }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              title="Friend Requests"
-            >
-              <UserPlus size={18} />
-              <span>Friends</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {viewMode === 'servers' && (
+              <button
+                onClick={() => setShowMemberList(!showMemberList)}
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--surface-2)';
+                  e.currentTarget.style.color = 'var(--text)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                }}
+                title={showMemberList ? 'Hide member list' : 'Show member list'}
+              >
+                {showMemberList ? <PanelRightClose size={20} /> : <PanelRight size={20} />}
+              </button>
+            )}
+            {viewMode === 'servers' && (
+              <button
+                onClick={() => setShowFriendRequests(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200"
+                style={{ background: 'var(--accent)', color: 'white' }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                title="Friend Requests"
+              >
+                <UserPlus size={18} />
+                <span>Friends</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="p-6 overflow-y-auto flex flex-col gap-3">
@@ -1612,7 +1640,7 @@ export default function ChatPage() {
       </main>
 
       {/* Member List Sidebar - Only show for servers, not for friends */}
-      {viewMode === 'servers' && <MemberList serverId={selectedServer} />}
+      {viewMode === 'servers' && showMemberList && <MemberList serverId={selectedServer} />}
     </div>
   );
 }
