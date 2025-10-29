@@ -347,35 +347,16 @@ export default function ChatPage() {
             sender: senderData,
           } as DirectMessage;
 
-          setDirectMessages((prev) => [...prev, newMessage]);
+          setDirectMessages((prev) => {
+            const exists = prev.find(msg => msg.id === newMessage.id);
+            if (exists) return prev;
+            return [...prev, newMessage];
+          });
 
           await supabase
             .from('direct_messages')
             .update({ read: true })
             .eq('id', payload.new.id);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'direct_messages',
-          filter: `sender_id=eq.${userId},receiver_id=eq.${selectedFriend.id}`,
-        },
-        async (payload) => {
-          const { data: receiverData } = await supabase
-            .from('profiles')
-            .select('username')
-            .eq('id', payload.new.receiver_id)
-            .maybeSingle();
-
-          const newMessage = {
-            ...payload.new,
-            receiver: receiverData,
-          } as DirectMessage;
-
-          setDirectMessages((prev) => [...prev, newMessage]);
         }
       )
       .subscribe();
@@ -425,17 +406,27 @@ export default function ChatPage() {
           setMessageInput('');
         }
       } else if (viewMode === 'friends' && selectedFriend) {
-        const { data, error } = await supabase.from('direct_messages').insert({
-          sender_id: userId,
-          receiver_id: selectedFriend.id,
-          content: messageInput.trim(),
-        });
+        const { data, error } = await supabase
+          .from('direct_messages')
+          .insert({
+            sender_id: userId,
+            receiver_id: selectedFriend.id,
+            content: messageInput.trim(),
+          })
+          .select(`
+            *,
+            sender:sender_id(username),
+            receiver:receiver_id(username)
+          `)
+          .single();
 
         if (error) {
           console.error('Error sending direct message:', error);
           alert(`Failed to send message: ${error.message}`);
         } else {
           console.log('Direct message sent successfully:', data);
+          const newMessage = data as DirectMessage;
+          setDirectMessages((prev) => [...prev, newMessage]);
           setMessageInput('');
         }
       }
