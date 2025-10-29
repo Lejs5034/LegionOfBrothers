@@ -155,9 +155,13 @@ const Community: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </motion.button>
               
-              <motion.button 
+              <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  const skillsSection = document.getElementById('skills');
+                  skillsSection?.scrollIntoView({ behavior: 'smooth' });
+                }}
                 className="px-10 py-4 border-2 border-cyan-400 text-cyan-400 rounded-full font-bold text-lg hover:bg-cyan-400 hover:text-black transition-all duration-300 hover:shadow-lg hover:shadow-cyan-400/25"
               >
                 VIEW COURSES
