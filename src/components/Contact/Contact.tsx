@@ -14,7 +14,7 @@ const Contact: React.FC = () => {
       icon: <Mail size={24} />,
       title: "Email Us",
       description: "Get in touch directly",
-      value: "legion@brothers.com",
+      value: "support@legionofbrother.com",
       gradient: "from-cyan-500 to-blue-600",
     },
     {
