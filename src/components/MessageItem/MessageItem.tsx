@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit2, Trash2, Check, X, Reply, FileText, Download, CornerDownRight } from 'lucide-react';
+import { Edit2, Trash2, Check, X, Reply, FileText, Download, CornerDownRight, AtSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Attachment {
@@ -24,6 +24,7 @@ interface MessageItemProps {
     attachments?: Attachment[];
   };
   currentUserId: string;
+  currentUsername?: string;
   isEditing: boolean;
   editingContent: string;
   onEditStart: (id: string, content: string) => void;
@@ -40,6 +41,7 @@ interface MessageItemProps {
 export default function MessageItem({
   message,
   currentUserId,
+  currentUsername,
   isEditing,
   editingContent,
   onEditStart,
@@ -54,13 +56,22 @@ export default function MessageItem({
 }: MessageItemProps) {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [parentMessage, setParentMessage] = useState<any>(null);
+  const [isMentioned, setIsMentioned] = useState(false);
+  const [isReplyToMe, setIsReplyToMe] = useState(false);
   const isOwnMessage = message.user_id === currentUserId;
 
   useEffect(() => {
     if (message.parent_message_id && !isReply) {
       loadParentMessage();
     }
-  }, [message.parent_message_id]);
+    checkMentions();
+  }, [message.parent_message_id, message.content, currentUsername]);
+
+  const checkMentions = () => {
+    if (currentUsername && message.content.includes(`@${currentUsername}`)) {
+      setIsMentioned(true);
+    }
+  };
 
   const loadParentMessage = async () => {
     if (!message.parent_message_id) return;
@@ -73,6 +84,9 @@ export default function MessageItem({
 
     if (data) {
       setParentMessage(data);
+      if (data.user_id === currentUserId) {
+        setIsReplyToMe(true);
+      }
     }
   };
 
@@ -85,10 +99,19 @@ export default function MessageItem({
     }
   };
 
+  const hasHighlight = isMentioned || isReplyToMe;
+  const highlightStyle = hasHighlight ? {
+    background: 'rgba(251, 191, 36, 0.08)',
+    borderLeft: '3px solid var(--accent)',
+    paddingLeft: '8px',
+    borderRadius: '8px',
+  } : {};
+
   return (
     <div
       id={`message-${message.id}`}
       className={`message flex gap-3 group relative ${isReply ? 'ml-8' : ''}`}
+      style={highlightStyle}
       onMouseEnter={() => setHoveredMessageId(message.id)}
       onMouseLeave={() => setHoveredMessageId(null)}
     >
@@ -115,16 +138,42 @@ export default function MessageItem({
             onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
           >
-            <Reply size={12} />
+            <span>↩︎</span>
             <span>
               Replying to <strong>{parentMessage.profiles?.username || 'Unknown'}</strong>
             </span>
           </button>
         )}
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-2 flex-wrap">
           <span className="font-semibold" style={{ color: 'var(--text)' }}>
             {message.profiles?.username || 'Unknown'}
           </span>
+          {isMentioned && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded"
+              style={{
+                background: 'var(--accent)',
+                color: 'white',
+                fontWeight: '600',
+              }}
+            >
+              <AtSign size={10} className="inline" style={{ marginRight: '2px' }} />
+              mentioned
+            </span>
+          )}
+          {isReplyToMe && !isMentioned && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded"
+              style={{
+                background: 'var(--accent)',
+                color: 'white',
+                fontWeight: '600',
+              }}
+            >
+              <Reply size={10} className="inline" style={{ marginRight: '2px' }} />
+              reply
+            </span>
+          )}
           <span className="timestamp">
             {new Date(message.created_at).toLocaleTimeString([], {
               hour: '2-digit',
@@ -240,7 +289,7 @@ export default function MessageItem({
                   e.currentTarget.style.color = 'var(--text-muted)';
                 }}
               >
-                <Reply size={12} />
+                <span>↩︎</span>
                 <span>
                   {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
                 </span>

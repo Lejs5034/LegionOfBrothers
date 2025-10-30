@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
@@ -115,6 +115,8 @@ export default function ChatPage() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [replyCounts, setReplyCounts] = useState<Record<string, number>>({});
   const [viewingRepliesFor, setViewingRepliesFor] = useState<string | null>(null);
+  const [mentionsCount, setMentionsCount] = useState(0);
+  const [showMentionsOnly, setShowMentionsOnly] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -304,6 +306,21 @@ export default function ChatPage() {
     );
 
     setReplyCounts(counts);
+    loadMentionsCount(messages);
+  };
+
+  const loadMentionsCount = (messages: Message[]) => {
+    if (!username) return;
+
+    const mentionedMessages = messages.filter((msg) => {
+      const isMentioned = msg.content.includes(`@${username}`);
+      const isReplyToMe = messages.some(
+        (m) => m.parent_message_id === msg.id && m.user_id === userId
+      );
+      return (isMentioned || isReplyToMe) && msg.user_id !== userId;
+    });
+
+    setMentionsCount(mentionedMessages.length);
   };
 
   const subscribeToMessages = useCallback(() => {
@@ -1309,25 +1326,51 @@ export default function ChatPage() {
             )}
           </div>
           {viewMode === 'servers' && (
-            <button
-              onClick={() => setShowMemberList(!showMemberList)}
-              className="p-2 rounded-lg transition-colors"
-              style={{
-                color: 'var(--text-muted)',
-                marginRight: '-0.5rem'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--surface-2)';
-                e.currentTarget.style.color = 'var(--text)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = 'var(--text-muted)';
-              }}
-              title={showMemberList ? 'Hide member list' : 'Show member list'}
-            >
-              {showMemberList ? <PanelRightClose size={20} /> : <PanelRight size={20} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {mentionsCount > 0 && (
+                <button
+                  onClick={() => setShowMentionsOnly(!showMentionsOnly)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 relative"
+                  style={{
+                    background: showMentionsOnly ? 'var(--accent)' : 'var(--surface-2)',
+                    color: showMentionsOnly ? 'white' : 'var(--text)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!showMentionsOnly) {
+                      e.currentTarget.style.background = 'var(--surface)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = showMentionsOnly ? 'var(--accent)' : 'var(--surface-2)';
+                  }}
+                  title="Jump to mentions"
+                >
+                  <AtSign size={16} />
+                  <span className="text-sm font-medium">{mentionsCount}</span>
+                  {!showMentionsOnly && (
+                    <span className="text-xs">mentions</span>
+                  )}
+                </button>
+              )}
+              <button
+                onClick={() => setShowMemberList(!showMemberList)}
+                className="p-2 rounded-lg transition-colors"
+                style={{
+                  color: 'var(--text-muted)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--surface-2)';
+                  e.currentTarget.style.color = 'var(--text)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                }}
+                title={showMemberList ? 'Hide member list' : 'Show member list'}
+              >
+                {showMemberList ? <PanelRightClose size={20} /> : <PanelRight size={20} />}
+              </button>
+            </div>
           )}
         </div>
 
@@ -1348,12 +1391,25 @@ export default function ChatPage() {
             ) : (
               <>
                 {messages
-                  .filter((msg) => !msg.parent_message_id)
+                  .filter((msg) => {
+                    if (!msg.parent_message_id) {
+                      if (showMentionsOnly) {
+                        const isMentioned = msg.content.includes(`@${username}`);
+                        const hasReplyToMe = messages.some(
+                          (m) => m.parent_message_id === msg.id && m.user_id === userId
+                        );
+                        return (isMentioned || hasReplyToMe) && msg.user_id !== userId;
+                      }
+                      return true;
+                    }
+                    return false;
+                  })
                   .map((message) => (
                     <div key={message.id}>
                       <MessageItem
                         message={message}
                         currentUserId={userId}
+                        currentUsername={username}
                         isEditing={editingMessageId === message.id}
                         editingContent={editingMessageContent}
                         onEditStart={handleEditMessage}
@@ -1373,6 +1429,7 @@ export default function ChatPage() {
                               key={reply.id}
                               message={reply}
                               currentUserId={userId}
+                              currentUsername={username}
                               isEditing={editingMessageId === reply.id}
                               editingContent={editingMessageContent}
                               onEditStart={handleEditMessage}
