@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes highlight {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(var(--accent-rgb, 251, 191, 36), 0.2);
+  }
+}
+
+.highlight-message {
+  animation: highlight 1.5s ease-in-out;
+}

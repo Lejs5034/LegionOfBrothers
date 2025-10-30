@@ -4,6 +4,7 @@ import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, 
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
+import MessageItem from '../components/MessageItem/MessageItem';
 
 interface Attachment {
   id: string;
@@ -21,6 +22,7 @@ interface Message {
   channel_id: string;
   created_at: string;
   edited_at?: string | null;
+  parent_message_id?: string | null;
   profiles?: {
     username: string;
   };
@@ -110,6 +112,9 @@ export default function ChatPage() {
     const saved = localStorage.getItem('showMemberList');
     return saved ? JSON.parse(saved) : true;
   });
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [replyCounts, setReplyCounts] = useState<Record<string, number>>({});
+  const [viewingRepliesFor, setViewingRepliesFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -278,8 +283,28 @@ export default function ChatPage() {
       );
 
       setMessages(messagesWithAttachments);
+      loadReplyCounts(messagesWithAttachments);
     }
   }, [selectedChannel]);
+
+  const loadReplyCounts = async (messages: Message[]) => {
+    const counts: Record<string, number> = {};
+
+    await Promise.all(
+      messages.map(async (msg) => {
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('parent_message_id', msg.id);
+
+        if (count && count > 0) {
+          counts[msg.id] = count;
+        }
+      })
+    );
+
+    setReplyCounts(counts);
+  };
 
   const subscribeToMessages = useCallback(() => {
     if (!selectedChannel) return;
@@ -434,6 +459,34 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, directMessages]);
 
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'r' || e.key === 'R') {
+        const activeElement = document.activeElement;
+        if (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') {
+          return;
+        }
+
+        const hoveredMessage = messages.find((msg) => {
+          const element = document.getElementById(`message-${msg.id}`);
+          return element?.matches(':hover');
+        });
+
+        if (hoveredMessage) {
+          e.preventDefault();
+          handleReply(hoveredMessage);
+        }
+      }
+
+      if (e.key === 'Escape' && replyingTo) {
+        handleCancelReply();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [messages, replyingTo]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -526,6 +579,20 @@ export default function ChatPage() {
     if (error) throw error;
   };
 
+  const handleReply = (message: Message) => {
+    setReplyingTo(message);
+    setMessageInput(`@${message.profiles?.username} `);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+    setMessageInput('');
+  };
+
+  const handleViewReplies = (parentId: string) => {
+    setViewingRepliesFor(viewingRepliesFor === parentId ? null : parentId);
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!messageInput.trim() && selectedFiles.length === 0) || loading) return;
@@ -556,6 +623,7 @@ export default function ChatPage() {
             channel_id: selectedChannel.id,
             user_id: userId,
             content: messageInput.trim() || '📎 Attachment',
+            parent_message_id: replyingTo?.id || null,
           })
           .select('*')
           .single();
@@ -576,6 +644,7 @@ export default function ChatPage() {
           await loadMessages();
           setMessageInput('');
           setSelectedFiles([]);
+          setReplyingTo(null);
         }
       } else if (viewMode === 'friends' && selectedFriend) {
         const { data, error } = await supabase
@@ -1277,139 +1346,47 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : (
-              messages.map((message) => {
-                const isOwnMessage = message.user_id === userId;
-                const isEditing = editingMessageId === message.id;
-                return (
-                  <div
-                    key={message.id}
-                    className="message flex gap-3 group relative"
-                    onMouseEnter={() => setHoveredMessageId(message.id)}
-                    onMouseLeave={() => setHoveredMessageId(null)}
-                  >
-                    <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
-                      {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
+              <>
+                {messages
+                  .filter((msg) => !msg.parent_message_id)
+                  .map((message) => (
+                    <div key={message.id}>
+                      <MessageItem
+                        message={message}
+                        currentUserId={userId}
+                        isEditing={editingMessageId === message.id}
+                        editingContent={editingMessageContent}
+                        onEditStart={handleEditMessage}
+                        onEditSave={handleSaveMessageEdit}
+                        onEditCancel={handleCancelMessageEdit}
+                        onEditContentChange={setEditingMessageContent}
+                        onDelete={handleDeleteMessage}
+                        onReply={handleReply}
+                        replyCount={replyCounts[message.id] || 0}
+                        onViewReplies={handleViewReplies}
+                      />
+                      {viewingRepliesFor === message.id &&
+                        messages
+                          .filter((msg) => msg.parent_message_id === message.id)
+                          .map((reply) => (
+                            <MessageItem
+                              key={reply.id}
+                              message={reply}
+                              currentUserId={userId}
+                              isEditing={editingMessageId === reply.id}
+                              editingContent={editingMessageContent}
+                              onEditStart={handleEditMessage}
+                              onEditSave={handleSaveMessageEdit}
+                              onEditCancel={handleCancelMessageEdit}
+                              onEditContentChange={setEditingMessageContent}
+                              onDelete={handleDeleteMessage}
+                              onReply={handleReply}
+                              isReply={true}
+                            />
+                          ))}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-semibold" style={{ color: 'var(--text)' }}>
-                          {message.profiles?.username || 'Unknown'}
-                        </span>
-                        <span className="timestamp">
-                          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        {message.edited_at && (
-                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            (edited)
-                          </span>
-                        )}
-                      </div>
-                      {isEditing ? (
-                        <div className="flex items-center gap-2 mt-1">
-                          <input
-                            type="text"
-                            value={editingMessageContent}
-                            onChange={(e) => setEditingMessageContent(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveMessageEdit();
-                              if (e.key === 'Escape') handleCancelMessageEdit();
-                            }}
-                            className="input-field flex-1 py-1 text-sm"
-                            autoFocus
-                          />
-                          <button
-                            onClick={handleSaveMessageEdit}
-                            className="p-1 rounded transition-colors"
-                            style={{ color: '#10b981' }}
-                            title="Save"
-                          >
-                            <Check size={18} />
-                          </button>
-                          <button
-                            onClick={handleCancelMessageEdit}
-                            className="p-1 rounded transition-colors"
-                            style={{ color: '#ef4444' }}
-                            title="Cancel"
-                          >
-                            <X size={18} />
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <p style={{ color: 'var(--text)' }}>{message.content}</p>
-                          {message.attachments && message.attachments.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {message.attachments.map((attachment) => {
-                                const { data } = supabase.storage.from('uploads').getPublicUrl(attachment.storage_path);
-                                const isImage = attachment.file_type.startsWith('image/');
-
-                                return (
-                                  <div key={attachment.id}>
-                                    {isImage ? (
-                                      <a href={data.publicUrl} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                          src={data.publicUrl}
-                                          alt={attachment.file_name}
-                                          className="rounded-lg max-w-xs max-h-64 object-cover cursor-pointer transition-opacity"
-                                          style={{ border: '1px solid var(--border)' }}
-                                          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                                          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                                        />
-                                      </a>
-                                    ) : (
-                                      <a
-                                        href={data.publicUrl}
-                                        download={attachment.file_name}
-                                        className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
-                                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
-                                      >
-                                        <FileText size={20} style={{ color: 'var(--accent)' }} />
-                                        <div className="flex flex-col">
-                                          <span className="text-sm font-medium">{attachment.file_name}</span>
-                                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                            {(attachment.file_size / 1024).toFixed(1)} KB
-                                          </span>
-                                        </div>
-                                        <Download size={16} style={{ color: 'var(--text-muted)' }} />
-                                      </a>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    {isOwnMessage && !isEditing && hoveredMessageId === message.id && (
-                      <div className="absolute top-0 right-0 flex gap-1">
-                        <button
-                          onClick={() => handleEditMessage(message.id, message.content)}
-                          className="p-1 rounded transition-colors"
-                          style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                          title="Edit message"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMessage(message.id)}
-                          className="p-1 rounded transition-colors"
-                          style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                          title="Delete message"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                  ))}
+              </>
             )
           ) : (
             directMessages.length === 0 ? (
@@ -1566,6 +1543,32 @@ export default function ChatPage() {
         </div>
 
         <div className="p-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+          {replyingTo && (
+            <div
+              className="mb-2 px-3 py-2 rounded-lg flex items-center justify-between"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                  Replying to <strong style={{ color: 'var(--text)' }}>{replyingTo.profiles?.username}</strong>
+                </span>
+                <span className="text-xs truncate max-w-[200px]" style={{ color: 'var(--text-muted)' }}>
+                  {replyingTo.content}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelReply}
+                className="p-1 rounded transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                title="Cancel reply"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           {selectedFiles.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
               {selectedFiles.map((file, index) => (
@@ -1587,8 +1590,8 @@ export default function ChatPage() {
                     onClick={() => removeSelectedFile(index)}
                     className="p-0.5 rounded transition-colors"
                     style={{ color: 'var(--text-muted)' }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
                   >
                     <X size={14} />
                   </button>
