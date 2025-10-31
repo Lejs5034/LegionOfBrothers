@@ -34,8 +34,7 @@ interface MessageItemProps {
   onDelete: (id: string) => void;
   onReply: (message: any) => void;
   replyCount?: number;
-  onViewReplies?: (parentId: string) => void;
-  isReply?: boolean;
+  onJumpToReplies?: (parentId: string) => void;
 }
 
 export default function MessageItem({
@@ -51,8 +50,7 @@ export default function MessageItem({
   onDelete,
   onReply,
   replyCount = 0,
-  onViewReplies,
-  isReply = false,
+  onJumpToReplies,
 }: MessageItemProps) {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [parentMessage, setParentMessage] = useState<any>(null);
@@ -61,7 +59,7 @@ export default function MessageItem({
   const isOwnMessage = message.user_id === currentUserId;
 
   useEffect(() => {
-    if (message.parent_message_id && !isReply) {
+    if (message.parent_message_id) {
       loadParentMessage();
     }
     checkMentions();
@@ -107,19 +105,19 @@ export default function MessageItem({
     borderRadius: '8px',
   } : {};
 
+  const jumpToFirstReply = () => {
+    if (replyCount === 0 || !onJumpToReplies) return;
+    onJumpToReplies(message.id);
+  };
+
   return (
     <div
       id={`message-${message.id}`}
-      className={`message flex gap-3 group relative ${isReply ? 'ml-8' : ''}`}
+      className="message flex gap-3 group relative"
       style={highlightStyle}
       onMouseEnter={() => setHoveredMessageId(message.id)}
       onMouseLeave={() => setHoveredMessageId(null)}
     >
-      {isReply && (
-        <div className="absolute left-[-20px] top-6 text-muted">
-          <CornerDownRight size={16} style={{ color: 'var(--text-muted)' }} />
-        </div>
-      )}
       <div
         className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold"
         style={{ background: 'var(--accent-grad)' }}
@@ -127,7 +125,7 @@ export default function MessageItem({
         {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
       </div>
       <div className="flex-1">
-        {parentMessage && !isReply && (
+        {parentMessage && (
           <button
             onClick={() => scrollToMessage(parentMessage.id)}
             className="flex items-center gap-1 mb-1 text-xs px-2 py-1 rounded transition-colors"
@@ -272,9 +270,9 @@ export default function MessageItem({
                 })}
               </div>
             )}
-            {replyCount > 0 && onViewReplies && !isReply && (
+            {replyCount > 0 && onJumpToReplies && (
               <button
-                onClick={() => onViewReplies(message.id)}
+                onClick={jumpToFirstReply}
                 className="flex items-center gap-1 mt-2 text-xs px-2 py-1 rounded transition-colors"
                 style={{
                   color: 'var(--text-muted)',

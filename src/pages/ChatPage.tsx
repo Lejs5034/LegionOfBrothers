@@ -114,7 +114,6 @@ export default function ChatPage() {
   });
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [replyCounts, setReplyCounts] = useState<Record<string, number>>({});
-  const [viewingRepliesFor, setViewingRepliesFor] = useState<string | null>(null);
   const [mentionsCount, setMentionsCount] = useState(0);
   const [showMentionsOnly, setShowMentionsOnly] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -607,7 +606,15 @@ export default function ChatPage() {
   };
 
   const handleViewReplies = (parentId: string) => {
-    setViewingRepliesFor(viewingRepliesFor === parentId ? null : parentId);
+    const firstReply = messages.find((msg) => msg.parent_message_id === parentId);
+    if (firstReply) {
+      const element = document.getElementById(`message-${firstReply.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add('highlight-message');
+        setTimeout(() => element.classList.remove('highlight-message'), 2000);
+      }
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -1389,61 +1396,35 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : (
-              <>
-                {messages
-                  .filter((msg) => {
-                    if (!msg.parent_message_id) {
-                      if (showMentionsOnly) {
-                        const isMentioned = msg.content.includes(`@${username}`);
-                        const hasReplyToMe = messages.some(
-                          (m) => m.parent_message_id === msg.id && m.user_id === userId
-                        );
-                        return (isMentioned || hasReplyToMe) && msg.user_id !== userId;
-                      }
-                      return true;
-                    }
-                    return false;
-                  })
-                  .map((message) => (
-                    <div key={message.id}>
-                      <MessageItem
-                        message={message}
-                        currentUserId={userId}
-                        currentUsername={username}
-                        isEditing={editingMessageId === message.id}
-                        editingContent={editingMessageContent}
-                        onEditStart={handleEditMessage}
-                        onEditSave={handleSaveMessageEdit}
-                        onEditCancel={handleCancelMessageEdit}
-                        onEditContentChange={setEditingMessageContent}
-                        onDelete={handleDeleteMessage}
-                        onReply={handleReply}
-                        replyCount={replyCounts[message.id] || 0}
-                        onViewReplies={handleViewReplies}
-                      />
-                      {viewingRepliesFor === message.id &&
-                        messages
-                          .filter((msg) => msg.parent_message_id === message.id)
-                          .map((reply) => (
-                            <MessageItem
-                              key={reply.id}
-                              message={reply}
-                              currentUserId={userId}
-                              currentUsername={username}
-                              isEditing={editingMessageId === reply.id}
-                              editingContent={editingMessageContent}
-                              onEditStart={handleEditMessage}
-                              onEditSave={handleSaveMessageEdit}
-                              onEditCancel={handleCancelMessageEdit}
-                              onEditContentChange={setEditingMessageContent}
-                              onDelete={handleDeleteMessage}
-                              onReply={handleReply}
-                              isReply={true}
-                            />
-                          ))}
-                    </div>
-                  ))}
-              </>
+              messages
+                .filter((msg) => {
+                  if (showMentionsOnly) {
+                    const isMentioned = msg.content.includes(`@${username}`);
+                    const hasReplyToMe = messages.some(
+                      (m) => m.parent_message_id === msg.id && m.user_id === userId
+                    );
+                    return (isMentioned || hasReplyToMe) && msg.user_id !== userId;
+                  }
+                  return true;
+                })
+                .map((message) => (
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    currentUserId={userId}
+                    currentUsername={username}
+                    isEditing={editingMessageId === message.id}
+                    editingContent={editingMessageContent}
+                    onEditStart={handleEditMessage}
+                    onEditSave={handleSaveMessageEdit}
+                    onEditCancel={handleCancelMessageEdit}
+                    onEditContentChange={setEditingMessageContent}
+                    onDelete={handleDeleteMessage}
+                    onReply={handleReply}
+                    replyCount={replyCounts[message.id] || 0}
+                    onJumpToReplies={handleViewReplies}
+                  />
+                ))
             )
           ) : (
             directMessages.length === 0 ? (
