@@ -35,6 +35,7 @@ interface MessageItemProps {
   onReply: (message: any) => void;
   replyCount?: number;
   onJumpToReplies?: (parentId: string) => void;
+  onUserClick?: (userId: string) => void;
 }
 
 export default function MessageItem({
@@ -51,6 +52,7 @@ export default function MessageItem({
   onReply,
   replyCount = 0,
   onJumpToReplies,
+  onUserClick,
 }: MessageItemProps) {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [parentMessage, setParentMessage] = useState<any>(null);
@@ -118,12 +120,14 @@ export default function MessageItem({
       onMouseEnter={() => setHoveredMessageId(message.id)}
       onMouseLeave={() => setHoveredMessageId(null)}
     >
-      <div
-        className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold"
+      <button
+        onClick={() => onUserClick?.(message.user_id)}
+        className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold transition-transform hover:scale-110 cursor-pointer"
         style={{ background: 'var(--accent-grad)' }}
+        title="View profile"
       >
         {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
-      </div>
+      </button>
       <div className="flex-1">
         {parentMessage && (
           <button
@@ -143,9 +147,14 @@ export default function MessageItem({
           </button>
         )}
         <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="font-semibold" style={{ color: 'var(--text)' }}>
+          <button
+            onClick={() => onUserClick?.(message.user_id)}
+            className="font-semibold hover:underline transition-all cursor-pointer"
+            style={{ color: 'var(--text)' }}
+            title="View profile"
+          >
             {message.profiles?.username || 'Unknown'}
-          </span>
+          </button>
           {isMentioned && (
             <span
               className="text-xs px-1.5 py-0.5 rounded"

@@ -6,6 +6,7 @@ import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
 import MessageItem from '../components/MessageItem/MessageItem';
 import MentionDropdown from '../components/MentionDropdown/MentionDropdown';
+import UserProfileModal from '../components/UserProfileModal/UserProfileModal';
 import { findMentionTrigger, insertMention, extractMentions, getCaretPosition } from '../utils/mentionUtils';
 
 interface Attachment {
@@ -122,6 +123,8 @@ export default function ChatPage() {
   const [mentionSearchTerm, setMentionSearchTerm] = useState('');
   const [mentionStartPos, setMentionStartPos] = useState(0);
   const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string; role_rank?: number; role_color?: string }>>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [showUserProfile, setShowUserProfile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -1587,6 +1590,10 @@ export default function ChatPage() {
                     onReply={handleReply}
                     replyCount={replyCounts[message.id] || 0}
                     onJumpToReplies={handleViewReplies}
+                    onUserClick={(clickedUserId) => {
+                      setSelectedUserId(clickedUserId);
+                      setShowUserProfile(true);
+                    }}
                   />
                 ))
             )
@@ -1876,6 +1883,18 @@ export default function ChatPage() {
 
       {/* Member List Sidebar - Only show for servers, not for friends */}
       {viewMode === 'servers' && showMemberList && <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />}
+
+      {/* User Profile Modal */}
+      {showUserProfile && selectedUserId && (
+        <UserProfileModal
+          userId={selectedUserId}
+          serverId={viewMode === 'servers' ? (serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer) : undefined}
+          onClose={() => {
+            setShowUserProfile(false);
+            setSelectedUserId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
