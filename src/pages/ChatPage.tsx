@@ -122,7 +122,7 @@ export default function ChatPage() {
   const [mentionSearchTerm, setMentionSearchTerm] = useState('');
   const [mentionStartPos, setMentionStartPos] = useState(0);
   const [mentionDropdownPosition, setMentionDropdownPosition] = useState({ top: 0, left: 0 });
-  const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string }>>([]);
+  const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string; role_rank?: number; role_color?: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -226,6 +226,7 @@ export default function ChatPage() {
         .from('server_members')
         .select(`
           user_id,
+          role_id,
           profiles:user_id (
             id,
             username,
@@ -239,13 +240,31 @@ export default function ChatPage() {
         return;
       }
 
+      const { data: roles, error: rolesError } = await supabase
+        .from('server_roles')
+        .select('id, rank, color')
+        .eq('server_id', serverData.id);
+
+      if (rolesError) {
+        console.error('Error loading roles:', rolesError);
+      }
+
+      const rolesMap = new Map(
+        (roles || []).map(role => [role.id, { rank: role.rank, color: role.color }])
+      );
+
       const validMembers = (members || [])
         .filter(m => m.profiles && (m.profiles as any).id && (m.profiles as any).username)
-        .map(m => ({
-          id: (m.profiles as any).id,
-          username: (m.profiles as any).username,
-          avatar_url: (m.profiles as any).avatar_url,
-        }));
+        .map(m => {
+          const roleInfo = m.role_id ? rolesMap.get(m.role_id) : null;
+          return {
+            id: (m.profiles as any).id,
+            username: (m.profiles as any).username,
+            avatar_url: (m.profiles as any).avatar_url,
+            role_rank: roleInfo?.rank,
+            role_color: roleInfo?.color,
+          };
+        });
 
       setServerMembers(validMembers);
     } catch (error) {
@@ -930,16 +949,22 @@ export default function ChatPage() {
       setMentionSearchTerm(mentionTrigger.searchTerm);
 
       const rect = messageInputRef.current.getBoundingClientRect();
-      const inputStyle = window.getComputedStyle(messageInputRef.current);
-      const fontSize = parseFloat(inputStyle.fontSize);
-      const padding = parseFloat(inputStyle.paddingLeft);
+      const dropdownHeight = 300;
+      const spacing = 8;
 
-      const charWidth = fontSize * 0.6;
-      const leftOffset = padding + (mentionTrigger.start * charWidth);
+      let topPosition = rect.top - dropdownHeight - spacing;
+      if (topPosition < 20) {
+        topPosition = rect.bottom + spacing;
+      }
+
+      const leftPosition = Math.max(
+        20,
+        Math.min(rect.left, window.innerWidth - 340)
+      );
 
       setMentionDropdownPosition({
-        top: rect.top - 220,
-        left: Math.min(rect.left + leftOffset, window.innerWidth - 320),
+        top: topPosition,
+        left: leftPosition,
       });
 
       setShowMentionDropdown(true);
