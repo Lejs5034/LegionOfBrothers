@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Edit2, Trash2, Check, X, Reply, FileText, Download, CornerDownRight, AtSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import MentionPill from '../MentionPill/MentionPill';
 
 interface Attachment {
   id: string;
@@ -95,6 +96,36 @@ export default function MessageItem({
       element.classList.add('highlight-message');
       setTimeout(() => element.classList.remove('highlight-message'), 2000);
     }
+  };
+
+  const renderMessageContent = (content: string) => {
+    const mentionRegex = /@(\w+)/g;
+    const parts: (string | JSX.Element)[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(content.substring(lastIndex, match.index));
+      }
+
+      const username = match[1];
+      parts.push(
+        <MentionPill
+          key={`mention-${match.index}`}
+          username={username}
+          userId=""
+        />
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : content;
   };
 
   const hasHighlight = isMentioned || isReplyToMe;
@@ -216,7 +247,7 @@ export default function MessageItem({
           </div>
         ) : (
           <>
-            <p style={{ color: 'var(--text)' }}>{message.content}</p>
+            <p style={{ color: 'var(--text)' }}>{renderMessageContent(message.content)}</p>
             {message.attachments && message.attachments.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {message.attachments.map((attachment) => {
