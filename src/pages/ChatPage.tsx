@@ -6,6 +6,7 @@ import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
 import MessageItem from '../components/MessageItem/MessageItem';
 import MentionAutocomplete from '../components/MentionAutocomplete/MentionAutocomplete';
+import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary';
 
 interface Attachment {
   id: string;
@@ -612,50 +613,66 @@ export default function ChatPage() {
   };
 
   const handleMessageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const cursorPos = e.target.selectionStart || 0;
+    try {
+      const value = e.target.value;
+      const cursorPos = e.target.selectionStart || 0;
 
-    setMessageInput(value);
-    setCursorPosition(cursorPos);
+      setMessageInput(value);
+      setCursorPosition(cursorPos);
 
-    const textBeforeCursor = value.substring(0, cursorPos);
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+      const textBeforeCursor = value.substring(0, cursorPos);
+      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
 
-    if (lastAtIndex !== -1 && (lastAtIndex === 0 || /\s/.test(textBeforeCursor[lastAtIndex - 1]))) {
-      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-      if (!textAfterAt.includes(' ') && cursorPos > lastAtIndex) {
-        const rect = e.target.getBoundingClientRect();
-        setMentionPosition({
-          top: rect.top - 300,
-          left: rect.left,
-        });
-        setMentionQuery(textAfterAt);
-        setShowMentionAutocomplete(true);
+      if (lastAtIndex !== -1 && (lastAtIndex === 0 || /\s/.test(textBeforeCursor[lastAtIndex - 1] || ''))) {
+        const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+        if (!textAfterAt.includes(' ') && cursorPos > lastAtIndex) {
+          const rect = e.target.getBoundingClientRect();
+          setMentionPosition({
+            top: rect.top - 300,
+            left: rect.left,
+          });
+          setMentionQuery(textAfterAt);
+          setShowMentionAutocomplete(true);
+        } else {
+          setShowMentionAutocomplete(false);
+        }
       } else {
         setShowMentionAutocomplete(false);
       }
-    } else {
+    } catch (error) {
+      console.error('Error handling mention input:', error);
       setShowMentionAutocomplete(false);
     }
   };
 
   const handleMentionSelect = (member: any) => {
-    const textBeforeCursor = messageInput.substring(0, cursorPosition);
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-    const textAfterCursor = messageInput.substring(cursorPosition);
+    try {
+      if (!member || !member.profiles || !member.profiles.username) {
+        console.error('Invalid member data:', member);
+        setShowMentionAutocomplete(false);
+        return;
+      }
 
-    const newText =
-      messageInput.substring(0, lastAtIndex) +
-      `@${member.profiles.username} ` +
-      textAfterCursor;
+      const textBeforeCursor = messageInput.substring(0, cursorPosition);
+      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+      const textAfterCursor = messageInput.substring(cursorPosition);
 
-    setMessageInput(newText);
-    setShowMentionAutocomplete(false);
-    setMentionQuery('');
+      const newText =
+        messageInput.substring(0, lastAtIndex) +
+        `@${member.profiles.username} ` +
+        textAfterCursor;
 
-    setTimeout(() => {
-      messageInputRef.current?.focus();
-    }, 0);
+      setMessageInput(newText);
+      setShowMentionAutocomplete(false);
+      setMentionQuery('');
+
+      setTimeout(() => {
+        messageInputRef.current?.focus();
+      }, 0);
+    } catch (error) {
+      console.error('Error selecting mention:', error);
+      setShowMentionAutocomplete(false);
+    }
   };
 
   const extractMentions = (text: string): string[] => {
@@ -1794,13 +1811,15 @@ export default function ChatPage() {
 
       {/* Mention Autocomplete */}
       {showMentionAutocomplete && viewMode === 'servers' && (
-        <MentionAutocomplete
-          members={serverMembers}
-          query={mentionQuery}
-          position={mentionPosition}
-          onSelect={handleMentionSelect}
-          onClose={() => setShowMentionAutocomplete(false)}
-        />
+        <ErrorBoundary>
+          <MentionAutocomplete
+            members={serverMembers}
+            query={mentionQuery}
+            position={mentionPosition}
+            onSelect={handleMentionSelect}
+            onClose={() => setShowMentionAutocomplete(false)}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );
