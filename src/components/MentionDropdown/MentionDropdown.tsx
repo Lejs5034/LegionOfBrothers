@@ -13,7 +13,6 @@ interface MentionDropdownProps {
   searchTerm: string;
   onSelect: (member: Member) => void;
   onClose: () => void;
-  position: { top: number; left: number };
 }
 
 function scoreMatch(username: string, searchTerm: string): number {
@@ -54,15 +53,14 @@ function sortMembers(members: Member[], searchTerm: string): Member[] {
     });
 }
 
-export default function MentionDropdown({ members, searchTerm, onSelect, onClose, position }: MentionDropdownProps) {
+export default function MentionDropdown({ members, searchTerm, onSelect, onClose }: MentionDropdownProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLButtonElement>(null);
 
   console.log('[MentionDropdown] Rendering with:', {
     membersCount: members.length,
-    searchTerm,
-    position
+    searchTerm
   });
 
   const filteredMembers = sortMembers(members, searchTerm);
@@ -135,10 +133,10 @@ export default function MentionDropdown({ members, searchTerm, onSelect, onClose
     return (
       <div
         ref={dropdownRef}
-        className="fixed z-50 min-w-[240px] max-w-[320px] rounded-lg shadow-xl overflow-hidden"
+        className="absolute z-50 min-w-[240px] max-w-[320px] rounded-lg shadow-xl overflow-hidden"
         style={{
-          top: `${position.top}px`,
-          left: `${position.left}px`,
+          bottom: 'calc(100% + 8px)',
+          left: 0,
           background: 'var(--surface)',
           border: '1px solid var(--border)',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
@@ -154,10 +152,10 @@ export default function MentionDropdown({ members, searchTerm, onSelect, onClose
   return (
     <div
       ref={dropdownRef}
-      className="fixed z-50 min-w-[240px] max-w-[320px] rounded-lg shadow-xl overflow-hidden"
+      className="absolute z-50 min-w-[240px] max-w-[320px] rounded-lg shadow-xl overflow-hidden"
       style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
+        bottom: 'calc(100% + 8px)',
+        left: 0,
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',

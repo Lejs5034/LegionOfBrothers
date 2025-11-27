@@ -121,7 +121,6 @@ export default function ChatPage() {
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearchTerm, setMentionSearchTerm] = useState('');
   const [mentionStartPos, setMentionStartPos] = useState(0);
-  const [mentionDropdownPosition, setMentionDropdownPosition] = useState({ top: 0, left: 0 });
   const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string; role_rank?: number; role_color?: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -981,27 +980,7 @@ export default function ChatPage() {
     setMentionStartPos(lastAtSymbol);
     setMentionSearchTerm(textAfterAt);
 
-    const rect = input.getBoundingClientRect();
-    const dropdownHeight = 300;
-    const spacing = 8;
-
-    let topPosition = rect.top - dropdownHeight - spacing;
-    if (topPosition < 20) {
-      topPosition = rect.bottom + spacing;
-    }
-
-    const leftPosition = Math.max(
-      20,
-      Math.min(rect.left, window.innerWidth - 340)
-    );
-
-    const position = {
-      top: topPosition,
-      left: leftPosition,
-    };
-
-    console.log('[Mentions] Showing dropdown at:', position, 'searchTerm:', textAfterAt);
-    setMentionDropdownPosition(position);
+    console.log('[Mentions] Showing dropdown, searchTerm:', textAfterAt);
     setShowMentionDropdown(true);
   };
 
@@ -1861,7 +1840,6 @@ export default function ChatPage() {
                   searchTerm={mentionSearchTerm}
                   onSelect={handleMentionSelect}
                   onClose={handleCloseMentionDropdown}
-                  position={mentionDropdownPosition}
                 />
               )}
             </div>
