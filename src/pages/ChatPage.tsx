@@ -5,8 +5,6 @@ import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
 import MessageItem from '../components/MessageItem/MessageItem';
-import MentionAutocomplete from '../components/MentionAutocomplete/MentionAutocomplete';
-import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary';
 
 interface Attachment {
   id: string;
@@ -118,13 +116,8 @@ export default function ChatPage() {
   const [replyCounts, setReplyCounts] = useState<Record<string, number>>({});
   const [mentionsCount, setMentionsCount] = useState(0);
   const [showMentionsOnly, setShowMentionsOnly] = useState(false);
-  const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState('');
-  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
-  const [cursorPosition, setCursorPosition] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     localStorage.setItem('showMemberList', JSON.stringify(showMemberList));
@@ -612,81 +605,6 @@ export default function ChatPage() {
     setMessageInput('');
   };
 
-  const handleMessageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      const value = e.target.value;
-      const cursorPos = e.target.selectionStart || 0;
-
-      setMessageInput(value);
-      setCursorPosition(cursorPos);
-
-      const textBeforeCursor = value.substring(0, cursorPos);
-      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-
-      if (lastAtIndex !== -1 && (lastAtIndex === 0 || /\s/.test(textBeforeCursor[lastAtIndex - 1] || ''))) {
-        const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-        if (!textAfterAt.includes(' ') && cursorPos > lastAtIndex) {
-          const rect = e.target.getBoundingClientRect();
-          setMentionPosition({
-            top: rect.top - 300,
-            left: rect.left,
-          });
-          setMentionQuery(textAfterAt);
-          setShowMentionAutocomplete(true);
-        } else {
-          setShowMentionAutocomplete(false);
-        }
-      } else {
-        setShowMentionAutocomplete(false);
-      }
-    } catch (error) {
-      console.error('Error handling mention input:', error);
-      setShowMentionAutocomplete(false);
-    }
-  };
-
-  const handleMentionSelect = (member: any) => {
-    try {
-      if (!member || !member.profiles || !member.profiles.username) {
-        console.error('Invalid member data:', member);
-        setShowMentionAutocomplete(false);
-        return;
-      }
-
-      const textBeforeCursor = messageInput.substring(0, cursorPosition);
-      const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-      const textAfterCursor = messageInput.substring(cursorPosition);
-
-      const newText =
-        messageInput.substring(0, lastAtIndex) +
-        `@${member.profiles.username} ` +
-        textAfterCursor;
-
-      setMessageInput(newText);
-      setShowMentionAutocomplete(false);
-      setMentionQuery('');
-
-      setTimeout(() => {
-        messageInputRef.current?.focus();
-      }, 0);
-    } catch (error) {
-      console.error('Error selecting mention:', error);
-      setShowMentionAutocomplete(false);
-    }
-  };
-
-  const extractMentions = (text: string): string[] => {
-    const mentionRegex = /@(\w+)/g;
-    const mentions: string[] = [];
-    let match;
-
-    while ((match = mentionRegex.exec(text)) !== null) {
-      mentions.push(match[1]);
-    }
-
-    return mentions;
-  };
-
   const handleViewReplies = (parentId: string) => {
     const firstReply = messages.find((msg) => msg.parent_message_id === parentId);
     if (firstReply) {
@@ -747,30 +665,6 @@ export default function ChatPage() {
           if (uploadedFiles.length > 0 && data) {
             await createAttachmentRecords(data.id, false, uploadedFiles);
           }
-
-          if (data && selectedServer) {
-            const mentionedUsernames = extractMentions(messageInput);
-            if (mentionedUsernames.length > 0) {
-              const { data: memberProfiles } = await supabase
-                .from('server_members')
-                .select('user_id, profiles:user_id(username)')
-                .eq('server_id', selectedServer.id)
-                .in('profiles.username', mentionedUsernames);
-
-              if (memberProfiles) {
-                for (const memberProfile of memberProfiles) {
-                  if (memberProfile.user_id !== userId) {
-                    await supabase.from('message_mentions').insert({
-                      message_id: data.id,
-                      mentioned_user_id: memberProfile.user_id,
-                      mentioning_user_id: userId,
-                    });
-                  }
-                }
-              }
-            }
-          }
-
           await loadMessages();
           setMessageInput('');
           setSelectedFiles([]);
@@ -1764,7 +1658,6 @@ export default function ChatPage() {
               <Paperclip size={20} />
             </button>
             <input
-              ref={messageInputRef}
               className="input-field flex-1"
               placeholder={
                 viewMode === 'servers'
@@ -1772,7 +1665,7 @@ export default function ChatPage() {
                   : `Message ${selectedFriend?.username || 'friend'}`
               }
               value={messageInput}
-              onChange={handleMessageInputChange}
+              onChange={(e) => setMessageInput(e.target.value)}
               disabled={(viewMode === 'servers' && !selectedChannel) || (viewMode === 'friends' && !selectedFriend) || loading || uploadingFile}
             />
             <button
@@ -1808,19 +1701,6 @@ export default function ChatPage() {
 
       {/* Member List Sidebar - Only show for servers, not for friends */}
       {viewMode === 'servers' && showMemberList && <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />}
-
-      {/* Mention Autocomplete */}
-      {showMentionAutocomplete && viewMode === 'servers' && (
-        <ErrorBoundary>
-          <MentionAutocomplete
-            members={serverMembers}
-            query={mentionQuery}
-            position={mentionPosition}
-            onSelect={handleMentionSelect}
-            onClose={() => setShowMentionAutocomplete(false)}
-          />
-        </ErrorBoundary>
-      )}
     </div>
   );
 }
