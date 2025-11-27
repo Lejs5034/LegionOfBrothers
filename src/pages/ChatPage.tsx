@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
 import MessageItem from '../components/MessageItem/MessageItem';
+import MentionDropdown from '../components/MentionDropdown/MentionDropdown';
+import { findMentionTrigger, insertMention, extractMentions, getCaretPosition } from '../utils/mentionUtils';
 
 interface Attachment {
   id: string;
@@ -116,8 +118,14 @@ export default function ChatPage() {
   const [replyCounts, setReplyCounts] = useState<Record<string, number>>({});
   const [mentionsCount, setMentionsCount] = useState(0);
   const [showMentionsOnly, setShowMentionsOnly] = useState(false);
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionSearchTerm, setMentionSearchTerm] = useState('');
+  const [mentionStartPos, setMentionStartPos] = useState(0);
+  const [mentionDropdownPosition, setMentionDropdownPosition] = useState({ top: 0, left: 0 });
+  const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     localStorage.setItem('showMemberList', JSON.stringify(showMemberList));
@@ -198,10 +206,59 @@ export default function ChatPage() {
     }
   }, [selectedServer]);
 
+  const loadServerMembers = async () => {
+    try {
+      const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
+      if (!serverSlug) return;
+
+      const { data: serverData, error: serverError } = await supabase
+        .from('servers')
+        .select('id')
+        .eq('slug', serverSlug)
+        .maybeSingle();
+
+      if (serverError || !serverData) {
+        console.error('Error loading server for members:', serverError);
+        return;
+      }
+
+      const { data: members, error: membersError } = await supabase
+        .from('server_members')
+        .select(`
+          user_id,
+          profiles:user_id (
+            id,
+            username,
+            avatar_url
+          )
+        `)
+        .eq('server_id', serverData.id);
+
+      if (membersError) {
+        console.error('Error loading members:', membersError);
+        return;
+      }
+
+      const validMembers = (members || [])
+        .filter(m => m.profiles && (m.profiles as any).id && (m.profiles as any).username)
+        .map(m => ({
+          id: (m.profiles as any).id,
+          username: (m.profiles as any).username,
+          avatar_url: (m.profiles as any).avatar_url,
+        }));
+
+      setServerMembers(validMembers);
+    } catch (error) {
+      console.error('Error loading server members:', error);
+      setServerMembers([]);
+    }
+  };
+
   useEffect(() => {
     if (!ready) return;
     if (viewMode === 'servers') {
       loadChannels();
+      loadServerMembers();
     }
   }, [ready, selectedServer, loadChannels, viewMode]);
 
@@ -624,6 +681,7 @@ export default function ChatPage() {
     if (viewMode === 'servers' && !selectedChannel) return;
     if (viewMode === 'friends' && !selectedFriend) return;
 
+    setShowMentionDropdown(false);
     setLoading(true);
     setUploadingFile(selectedFiles.length > 0);
 
@@ -665,6 +723,20 @@ export default function ChatPage() {
           if (uploadedFiles.length > 0 && data) {
             await createAttachmentRecords(data.id, false, uploadedFiles);
           }
+
+          if (data) {
+            const mentions = extractMentions(messageInput, serverMembers);
+            if (mentions.length > 0) {
+              const mentionRecords = mentions.map(mention => ({
+                message_id: data.id,
+                mentioned_user_id: mention.userId,
+                mentioning_user_id: userId,
+              }));
+
+              await supabase.from('message_mentions').insert(mentionRecords);
+            }
+          }
+
           await loadMessages();
           setMessageInput('');
           setSelectedFiles([]);
@@ -839,6 +911,62 @@ export default function ChatPage() {
   const handleCancelEdit = () => {
     setEditingField(null);
     setEditValue('');
+  };
+
+  const handleMessageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setMessageInput(newValue);
+
+    if (viewMode !== 'servers' || !messageInputRef.current) {
+      setShowMentionDropdown(false);
+      return;
+    }
+
+    const caretPosition = getCaretPosition(messageInputRef.current);
+    const mentionTrigger = findMentionTrigger(newValue, caretPosition);
+
+    if (mentionTrigger && serverMembers.length > 0) {
+      setMentionStartPos(mentionTrigger.start);
+      setMentionSearchTerm(mentionTrigger.searchTerm);
+
+      const rect = messageInputRef.current.getBoundingClientRect();
+      const inputStyle = window.getComputedStyle(messageInputRef.current);
+      const fontSize = parseFloat(inputStyle.fontSize);
+      const padding = parseFloat(inputStyle.paddingLeft);
+
+      const charWidth = fontSize * 0.6;
+      const leftOffset = padding + (mentionTrigger.start * charWidth);
+
+      setMentionDropdownPosition({
+        top: rect.top - 220,
+        left: Math.min(rect.left + leftOffset, window.innerWidth - 320),
+      });
+
+      setShowMentionDropdown(true);
+    } else {
+      setShowMentionDropdown(false);
+    }
+  };
+
+  const handleMentionSelect = (member: { id: string; username: string }) => {
+    const newText = insertMention(
+      messageInput,
+      mentionStartPos,
+      mentionSearchTerm.length,
+      member.username
+    );
+    setMessageInput(newText);
+    setShowMentionDropdown(false);
+
+    setTimeout(() => {
+      messageInputRef.current?.focus();
+      const newCaretPos = mentionStartPos + member.username.length + 2;
+      messageInputRef.current?.setSelectionRange(newCaretPos, newCaretPos);
+    }, 0);
+  };
+
+  const handleCloseMentionDropdown = () => {
+    setShowMentionDropdown(false);
   };
 
   const handleSaveEdit = async () => {
@@ -1657,17 +1785,29 @@ export default function ChatPage() {
             >
               <Paperclip size={20} />
             </button>
-            <input
-              className="input-field flex-1"
-              placeholder={
-                viewMode === 'servers'
-                  ? `Message #${selectedChannel?.name || 'channel'}`
-                  : `Message ${selectedFriend?.username || 'friend'}`
-              }
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              disabled={(viewMode === 'servers' && !selectedChannel) || (viewMode === 'friends' && !selectedFriend) || loading || uploadingFile}
-            />
+            <div className="relative flex-1">
+              <input
+                ref={messageInputRef}
+                className="input-field w-full"
+                placeholder={
+                  viewMode === 'servers'
+                    ? `Message #${selectedChannel?.name || 'channel'}`
+                    : `Message ${selectedFriend?.username || 'friend'}`
+                }
+                value={messageInput}
+                onChange={handleMessageInputChange}
+                disabled={(viewMode === 'servers' && !selectedChannel) || (viewMode === 'friends' && !selectedFriend) || loading || uploadingFile}
+              />
+              {showMentionDropdown && serverMembers.length > 0 && (
+                <MentionDropdown
+                  members={serverMembers}
+                  searchTerm={mentionSearchTerm}
+                  onSelect={handleMentionSelect}
+                  onClose={handleCloseMentionDropdown}
+                  position={mentionDropdownPosition}
+                />
+              )}
+            </div>
             <button
               type="submit"
               disabled={
