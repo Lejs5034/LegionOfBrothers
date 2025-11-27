@@ -206,10 +206,15 @@ export default function ChatPage() {
     }
   }, [selectedServer]);
 
-  const loadServerMembers = async () => {
+  const loadServerMembers = useCallback(async () => {
     try {
       const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
-      if (!serverSlug) return;
+      if (!serverSlug) {
+        console.log('[Mentions] No server slug found');
+        return;
+      }
+
+      console.log('[Mentions] Loading members for server:', serverSlug);
 
       const { data: serverData, error: serverError } = await supabase
         .from('servers')
@@ -218,9 +223,11 @@ export default function ChatPage() {
         .maybeSingle();
 
       if (serverError || !serverData) {
-        console.error('Error loading server for members:', serverError);
+        console.error('[Mentions] Error loading server:', serverError);
         return;
       }
+
+      console.log('[Mentions] Server ID:', serverData.id);
 
       const { data: members, error: membersError } = await supabase
         .from('server_members')
@@ -236,9 +243,11 @@ export default function ChatPage() {
         .eq('server_id', serverData.id);
 
       if (membersError) {
-        console.error('Error loading members:', membersError);
+        console.error('[Mentions] Error loading members:', membersError);
         return;
       }
+
+      console.log('[Mentions] Raw members data:', members);
 
       const { data: roles, error: rolesError } = await supabase
         .from('server_roles')
@@ -246,7 +255,7 @@ export default function ChatPage() {
         .eq('server_id', serverData.id);
 
       if (rolesError) {
-        console.error('Error loading roles:', rolesError);
+        console.error('[Mentions] Error loading roles:', rolesError);
       }
 
       const rolesMap = new Map(
@@ -266,12 +275,13 @@ export default function ChatPage() {
           };
         });
 
+      console.log('[Mentions] Valid members loaded:', validMembers.length, validMembers);
       setServerMembers(validMembers);
     } catch (error) {
-      console.error('Error loading server members:', error);
+      console.error('[Mentions] Error loading server members:', error);
       setServerMembers([]);
     }
-  };
+  }, [selectedServer]);
 
   useEffect(() => {
     if (!ready) return;
@@ -936,41 +946,63 @@ export default function ChatPage() {
     const newValue = e.target.value;
     setMessageInput(newValue);
 
-    if (viewMode !== 'servers' || !messageInputRef.current) {
+    if (viewMode !== 'servers') {
       setShowMentionDropdown(false);
       return;
     }
 
-    const caretPosition = getCaretPosition(messageInputRef.current);
-    const mentionTrigger = findMentionTrigger(newValue, caretPosition);
-
-    if (mentionTrigger && serverMembers.length > 0) {
-      setMentionStartPos(mentionTrigger.start);
-      setMentionSearchTerm(mentionTrigger.searchTerm);
-
-      const rect = messageInputRef.current.getBoundingClientRect();
-      const dropdownHeight = 300;
-      const spacing = 8;
-
-      let topPosition = rect.top - dropdownHeight - spacing;
-      if (topPosition < 20) {
-        topPosition = rect.bottom + spacing;
-      }
-
-      const leftPosition = Math.max(
-        20,
-        Math.min(rect.left, window.innerWidth - 340)
-      );
-
-      setMentionDropdownPosition({
-        top: topPosition,
-        left: leftPosition,
-      });
-
-      setShowMentionDropdown(true);
-    } else {
+    const input = messageInputRef.current;
+    if (!input) {
       setShowMentionDropdown(false);
+      return;
     }
+
+    const cursorPos = input.selectionStart || 0;
+    const textBeforeCursor = newValue.substring(0, cursorPos);
+    const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+
+    console.log('[Mentions] Input changed:', { newValue, cursorPos, lastAtSymbol });
+
+    if (lastAtSymbol === -1) {
+      setShowMentionDropdown(false);
+      return;
+    }
+
+    const textAfterAt = textBeforeCursor.substring(lastAtSymbol + 1);
+    const hasSpace = /\s/.test(textAfterAt);
+
+    console.log('[Mentions] After @:', { textAfterAt, hasSpace });
+
+    if (hasSpace) {
+      setShowMentionDropdown(false);
+      return;
+    }
+
+    setMentionStartPos(lastAtSymbol);
+    setMentionSearchTerm(textAfterAt);
+
+    const rect = input.getBoundingClientRect();
+    const dropdownHeight = 300;
+    const spacing = 8;
+
+    let topPosition = rect.top - dropdownHeight - spacing;
+    if (topPosition < 20) {
+      topPosition = rect.bottom + spacing;
+    }
+
+    const leftPosition = Math.max(
+      20,
+      Math.min(rect.left, window.innerWidth - 340)
+    );
+
+    const position = {
+      top: topPosition,
+      left: leftPosition,
+    };
+
+    console.log('[Mentions] Showing dropdown at:', position, 'searchTerm:', textAfterAt);
+    setMentionDropdownPosition(position);
+    setShowMentionDropdown(true);
   };
 
   const handleMentionSelect = (member: { id: string; username: string }) => {
@@ -1823,7 +1855,7 @@ export default function ChatPage() {
                 onChange={handleMessageInputChange}
                 disabled={(viewMode === 'servers' && !selectedChannel) || (viewMode === 'friends' && !selectedFriend) || loading || uploadingFile}
               />
-              {showMentionDropdown && serverMembers.length > 0 && (
+              {showMentionDropdown && (
                 <MentionDropdown
                   members={serverMembers}
                   searchTerm={mentionSearchTerm}

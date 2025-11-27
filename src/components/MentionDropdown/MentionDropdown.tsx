@@ -59,7 +59,14 @@ export default function MentionDropdown({ members, searchTerm, onSelect, onClose
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLButtonElement>(null);
 
+  console.log('[MentionDropdown] Rendering with:', {
+    membersCount: members.length,
+    searchTerm,
+    position
+  });
+
   const filteredMembers = sortMembers(members, searchTerm);
+  console.log('[MentionDropdown] Filtered members:', filteredMembers.length);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -128,7 +135,7 @@ export default function MentionDropdown({ members, searchTerm, onSelect, onClose
     return (
       <div
         ref={dropdownRef}
-        className="absolute z-50 min-w-[240px] max-w-[320px] rounded-lg shadow-xl overflow-hidden"
+        className="fixed z-50 min-w-[240px] max-w-[320px] rounded-lg shadow-xl overflow-hidden"
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
@@ -147,7 +154,7 @@ export default function MentionDropdown({ members, searchTerm, onSelect, onClose
   return (
     <div
       ref={dropdownRef}
-      className="absolute z-50 min-w-[240px] max-w-[320px] rounded-lg shadow-xl overflow-hidden"
+      className="fixed z-50 min-w-[240px] max-w-[320px] rounded-lg shadow-xl overflow-hidden"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
