@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap } from 'lucide-react';
+import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 
@@ -29,10 +29,37 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
   const [activeTab, setActiveTab] = useState<TabType>('information');
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserPowerLevel, setCurrentUserPowerLevel] = useState<number>(999);
+  const [banning, setBanning] = useState(false);
+  const [showBanConfirm, setShowBanConfirm] = useState(false);
+  const [banReason, setBanReason] = useState('');
 
   useEffect(() => {
+    loadCurrentUser();
     loadProfileData();
   }, [userId, serverId]);
+
+  const loadCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      setCurrentUserId(user.id);
+
+      const { data: profileView } = await supabase
+        .from('profiles_with_ban_status')
+        .select('power_level')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileView) {
+        setCurrentUserPowerLevel(profileView.power_level);
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error);
+    }
+  };
 
   const loadProfileData = async () => {
     try {
@@ -100,6 +127,39 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     const today = new Date();
     const diffTime = Math.abs(today.getTime() - joinDate.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const canBanUser = () => {
+    if (!profileData || !currentUserId) return false;
+    if (currentUserId === userId) return false;
+    if (profileData.is_banned) return false;
+    return currentUserPowerLevel < profileData.power_level;
+  };
+
+  const handleBanUser = async () => {
+    if (!profileData || banning) return;
+
+    try {
+      setBanning(true);
+
+      const { data, error } = await supabase.rpc('ban_user_from_platform', {
+        target_user_id: userId,
+        banner_user_id: currentUserId,
+        ban_reason: banReason || 'Violation of platform rules',
+        ban_expires_at: null,
+      });
+
+      if (error) throw error;
+
+      setShowBanConfirm(false);
+      setBanReason('');
+      await loadProfileData();
+    } catch (error: any) {
+      console.error('Error banning user:', error);
+      alert(error.message || 'Failed to ban user');
+    } finally {
+      setBanning(false);
+    }
   };
 
   const tabs: { id: TabType; label: string }[] = [
@@ -246,6 +306,28 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                             >
                               🚫 Banned
                             </span>
+                          )}
+                          {canBanUser() && (
+                            <button
+                              onClick={() => setShowBanConfirm(true)}
+                              className="px-3 py-1 rounded-full text-sm font-semibold transition-all flex items-center gap-1"
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                              }}
+                            >
+                              <Ban size={14} />
+                              Ban User
+                            </button>
                           )}
                         </div>
                       </div>
@@ -442,6 +524,115 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
             )}
           </div>
         </motion.div>
+
+        {showBanConfirm && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="absolute inset-0 flex items-center justify-center p-6"
+            style={{ background: 'rgba(0, 0, 0, 0.8)' }}
+            onClick={() => !banning && setShowBanConfirm(false)}
+          >
+            <div
+              className="relative max-w-md w-full p-6 rounded-xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(31, 41, 55, 0.98) 100%)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className="p-3 rounded-full"
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  <Ban size={24} style={{ color: '#ef4444' }} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: 'white' }}>
+                    Ban User
+                  </h3>
+                  <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                    This action will ban the user platform-wide
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm mb-2" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  You are about to permanently ban <strong style={{ color: 'white' }}>{profileData?.username}</strong> from the entire platform.
+                </p>
+                <p className="text-xs mb-4" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                  They will be removed from all servers and unable to send messages or participate in any activities.
+                </p>
+
+                <label className="block text-sm font-medium mb-2" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  Reason (optional)
+                </label>
+                <input
+                  type="text"
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                  placeholder="Violation of platform rules"
+                  disabled={banning}
+                  className="w-full px-3 py-2 rounded-lg text-sm transition-colors"
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'white',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.5)')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)')}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBanConfirm(false)}
+                  disabled={banning}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  }}
+                  onMouseEnter={(e) => !banning && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)')}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBanUser}
+                  disabled={banning}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background: banning ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.5)',
+                  }}
+                  onMouseEnter={(e) => !banning && (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)')}
+                  onMouseLeave={(e) => !banning && (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)')}
+                >
+                  {banning ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                      Banning...
+                    </>
+                  ) : (
+                    <>
+                      <Ban size={16} />
+                      Confirm Ban
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
     </AnimatePresence>
   );
