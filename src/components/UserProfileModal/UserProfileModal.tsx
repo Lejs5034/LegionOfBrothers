@@ -129,6 +129,33 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  const getRankColor = (rankName: string): string => {
+    const lowerRank = rankName.toLowerCase();
+
+    if (lowerRank.includes('the head')) {
+      return '#fbbf24';
+    }
+
+    if (lowerRank.includes('app developer')) {
+      return '#ef4444';
+    }
+
+    if (lowerRank.includes('professor')) {
+      return '#fbbf24';
+    }
+
+    return '#06b6d4';
+  };
+
+  const getRankStyles = (rankName: string) => {
+    const color = getRankColor(rankName);
+    return {
+      background: `${color}20`,
+      color: color,
+      border: `1px solid ${color}50`,
+    };
+  };
+
   const canBanUser = () => {
     if (!profileData || !currentUserId) return false;
     if (currentUserId === userId) return false;
@@ -274,11 +301,7 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                         <div className="flex flex-wrap gap-2 mb-3">
                           <span
                             className="px-3 py-1 rounded-full text-sm font-semibold"
-                            style={{
-                              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(139, 92, 246, 0.2))',
-                              color: '#06b6d4',
-                              border: '1px solid rgba(6, 182, 212, 0.3)',
-                            }}
+                            style={getRankStyles(profileData.rank_display_name)}
                           >
                             {profileData.rank_emoji} {profileData.rank_display_name}
                           </span>
