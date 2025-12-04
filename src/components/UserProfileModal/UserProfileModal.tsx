@@ -144,6 +144,18 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
       return '#fbbf24';
     }
 
+    if (lowerRank.includes('mentor')) {
+      return '#8b5cf6';
+    }
+
+    if (lowerRank.includes('admin')) {
+      return '#f59e0b';
+    }
+
+    if (lowerRank.includes('coach')) {
+      return '#10b981';
+    }
+
     return '#06b6d4';
   };
 
