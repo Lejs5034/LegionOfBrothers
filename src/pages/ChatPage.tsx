@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
@@ -128,6 +128,9 @@ export default function ChatPage() {
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [currentUserPowerLevel, setCurrentUserPowerLevel] = useState<number>(999);
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [newChannelName, setNewChannelName] = useState('');
+  const [creatingChannel, setCreatingChannel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -1136,6 +1139,60 @@ export default function ChatPage() {
     }
   };
 
+  const handleCreateChannel = async () => {
+    if (!newChannelName.trim() || creatingChannel) return;
+
+    const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
+    if (!serverSlug) return;
+
+    setCreatingChannel(true);
+
+    try {
+      const { data: serverData, error: serverError } = await supabase
+        .from('servers')
+        .select('id')
+        .eq('slug', serverSlug)
+        .maybeSingle();
+
+      if (serverError || !serverData) {
+        alert(`Failed to find server: ${serverError?.message || 'Server not found'}`);
+        return;
+      }
+
+      const { data: maxSortOrder } = await supabase
+        .from('channels')
+        .select('sort_order')
+        .eq('server_id', serverData.id)
+        .order('sort_order', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const nextSortOrder = (maxSortOrder?.sort_order || 0) + 1;
+
+      const { error } = await supabase
+        .from('channels')
+        .insert({
+          server_id: serverData.id,
+          name: newChannelName.trim().toLowerCase(),
+          type: 'text',
+          sort_order: nextSortOrder,
+        });
+
+      if (error) {
+        alert(`Failed to create channel: ${error.message}`);
+      } else {
+        setNewChannelName('');
+        setShowCreateChannel(false);
+        await loadChannels();
+      }
+    } catch (error: any) {
+      console.error('Error creating channel:', error);
+      alert('An unexpected error occurred');
+    } finally {
+      setCreatingChannel(false);
+    }
+  };
+
   if (!ready) {
     return (
       <div className="grid h-screen place-items-center" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
@@ -1228,8 +1285,22 @@ export default function ChatPage() {
         <nav className="px-2 py-3 space-y-1 overflow-y-auto flex-1">
           {viewMode === 'servers' ? (
             <>
-              <div className="text-xs font-semibold px-3 py-2 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                Channels
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                  Channels
+                </div>
+                {currentUserPowerLevel <= 6 && (
+                  <button
+                    onClick={() => setShowCreateChannel(true)}
+                    className="p-1 rounded transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    title="Create Channel"
+                  >
+                    <Plus size={16} />
+                  </button>
+                )}
               </div>
               {loadingChannels ? (
                 <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -1558,6 +1629,75 @@ export default function ChatPage() {
       {/* Friend Requests Modal */}
       {showFriendRequests && (
         <FriendRequest userId={userId} onClose={() => setShowFriendRequests(false)} />
+      )}
+
+      {/* Create Channel Modal */}
+      {showCreateChannel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.7)' }} onClick={() => setShowCreateChannel(false)}>
+          <div className="w-full max-w-md mx-4 rounded-lg shadow-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid var(--border)' }}>
+              <h2 className="text-xl font-bold" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+                Create Channel
+              </h2>
+              <button
+                onClick={() => setShowCreateChannel(false)}
+                className="p-2 rounded-lg transition-colors duration-200"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text)' }}>
+                  Channel Name
+                </label>
+                <input
+                  type="text"
+                  value={newChannelName}
+                  onChange={(e) => setNewChannelName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateChannel();
+                    if (e.key === 'Escape') setShowCreateChannel(false);
+                  }}
+                  placeholder="e.g., general, announcements"
+                  className="input-field w-full"
+                  autoFocus
+                  disabled={creatingChannel}
+                />
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Channel names are lowercase and cannot contain spaces
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreateChannel}
+                  disabled={!newChannelName.trim() || creatingChannel}
+                  className="btn-primary flex-1"
+                  style={{
+                    opacity: !newChannelName.trim() || creatingChannel ? 0.5 : 1,
+                  }}
+                >
+                  {creatingChannel ? 'Creating...' : 'Create Channel'}
+                </button>
+                <button
+                  onClick={() => setShowCreateChannel(false)}
+                  disabled={creatingChannel}
+                  className="px-4 py-2 rounded-lg font-medium transition-colors"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Chat section */}
