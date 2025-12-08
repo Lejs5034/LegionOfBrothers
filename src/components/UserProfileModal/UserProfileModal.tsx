@@ -11,6 +11,7 @@ interface UserProfileData {
   rank_display_name: string;
   rank_emoji: string;
   power_level: number;
+  login_streak: number;
   created_at: string;
   is_banned: boolean;
   server_role?: string;
@@ -76,6 +77,12 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
         return;
       }
 
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('login_streak')
+        .eq('id', userId)
+        .maybeSingle();
+
       let serverRole = null;
       let serverRoleColor = null;
 
@@ -101,6 +108,7 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
         rank_display_name: profileView.rank_display_name,
         rank_emoji: profileView.rank_emoji,
         power_level: profileView.power_level,
+        login_streak: profileData?.login_streak || 0,
         created_at: profileView.created_at,
         is_banned: profileView.is_banned,
         server_role: serverRole,
@@ -372,18 +380,18 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                       <div
                         className="p-4 rounded-xl"
                         style={{
-                          background: 'rgba(6, 182, 212, 0.05)',
-                          border: '1px solid rgba(6, 182, 212, 0.2)',
+                          background: 'rgba(251, 191, 36, 0.05)',
+                          border: '1px solid rgba(251, 191, 36, 0.2)',
                         }}
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <Zap size={18} style={{ color: '#06b6d4' }} />
+                          <Clock size={18} style={{ color: '#fbbf24' }} />
                           <span className="text-sm font-medium" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                            Power Level
+                            Login Streak
                           </span>
                         </div>
                         <p className="text-2xl font-bold" style={{ color: 'white' }}>
-                          {profileData.power_level}
+                          {profileData.login_streak} {profileData.login_streak === 1 ? 'day' : 'days'}
                         </p>
                       </div>
 
@@ -504,27 +512,6 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                           </span>
                         </div>
                         <p className="text-3xl font-bold" style={{ color: '#8b5cf6' }}>
-                          -
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: 'rgba(255, 255, 255, 0.3)' }}>
-                          Coming soon
-                        </p>
-                      </div>
-
-                      <div
-                        className="p-4 rounded-xl"
-                        style={{
-                          background: 'rgba(251, 191, 36, 0.05)',
-                          border: '1px solid rgba(251, 191, 36, 0.2)',
-                        }}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <Clock size={20} style={{ color: '#fbbf24' }} />
-                          <span className="font-semibold" style={{ color: 'white' }}>
-                            Login Streak
-                          </span>
-                        </div>
-                        <p className="text-3xl font-bold" style={{ color: '#fbbf24' }}>
                           -
                         </p>
                         <p className="text-xs mt-1" style={{ color: 'rgba(255, 255, 255, 0.3)' }}>

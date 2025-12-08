@@ -149,6 +149,8 @@ export default function ChatPage() {
         setUserEmail(data.session.user.email || 'user@email.com');
         setUserId(data.session.user.id);
 
+        await supabase.rpc('update_login_streak', { user_id: data.session.user.id });
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('username')
