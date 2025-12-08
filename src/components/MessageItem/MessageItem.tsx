@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit2, Trash2, Check, X, Reply, FileText, Download, CornerDownRight, AtSign } from 'lucide-react';
+import { Edit2, Trash2, Check, X, Reply, FileText, Download, CornerDownRight, AtSign, Pin } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface Attachment {
@@ -36,6 +36,9 @@ interface MessageItemProps {
   replyCount?: number;
   onJumpToReplies?: (parentId: string) => void;
   onUserClick?: (userId: string) => void;
+  canPin?: boolean;
+  isPinned?: boolean;
+  onTogglePin?: (messageId: string, isPinned: boolean) => void;
 }
 
 export default function MessageItem({
@@ -53,6 +56,9 @@ export default function MessageItem({
   replyCount = 0,
   onJumpToReplies,
   onUserClick,
+  canPin = false,
+  isPinned = false,
+  onTogglePin,
 }: MessageItemProps) {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [parentMessage, setParentMessage] = useState<any>(null);
@@ -317,6 +323,23 @@ export default function MessageItem({
           >
             <Reply size={16} />
           </button>
+          {canPin && onTogglePin && (
+            <button
+              onClick={() => onTogglePin(message.id, isPinned)}
+              className="p-1 rounded transition-colors"
+              style={{
+                background: 'var(--surface-2)',
+                color: isPinned ? '#fbbf24' : 'var(--text-muted)',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#fbbf24')}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = isPinned ? '#fbbf24' : 'var(--text-muted)')
+              }
+              title={isPinned ? 'Unpin message' : 'Pin message'}
+            >
+              <Pin size={16} style={{ transform: isPinned ? 'rotate(45deg)' : 'none' }} />
+            </button>
+          )}
           {isOwnMessage && (
             <>
               <button

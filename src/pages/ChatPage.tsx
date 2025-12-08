@@ -7,6 +7,7 @@ import MemberList from '../components/MemberList/MemberList';
 import MessageItem from '../components/MessageItem/MessageItem';
 import MentionDropdown from '../components/MentionDropdown/MentionDropdown';
 import UserProfileModal from '../components/UserProfileModal/UserProfileModal';
+import PinnedMessagesBar from '../components/PinnedMessagesBar/PinnedMessagesBar';
 import { findMentionTrigger, insertMention, extractMentions, getCaretPosition } from '../utils/mentionUtils';
 
 interface Attachment {
@@ -125,6 +126,8 @@ export default function ChatPage() {
   const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string; role_rank?: number; role_color?: string }>>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
+  const [currentUserPowerLevel, setCurrentUserPowerLevel] = useState<number>(999);
+  const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -149,6 +152,16 @@ export default function ChatPage() {
 
         if (profile) {
           setUsername(profile.username);
+        }
+
+        const { data: profileView } = await supabase
+          .from('profiles_with_ban_status')
+          .select('power_level')
+          .eq('id', data.session.user.id)
+          .maybeSingle();
+
+        if (profileView) {
+          setCurrentUserPowerLevel(profileView.power_level);
         }
 
         setReady(true);
@@ -374,7 +387,27 @@ export default function ChatPage() {
       setMessages(messagesWithAttachments);
       loadReplyCounts(messagesWithAttachments);
     }
+
+    loadPinnedMessages();
   }, [selectedChannel]);
+
+  const loadPinnedMessages = async () => {
+    if (!selectedChannel) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('pinned_messages')
+        .select('message_id')
+        .eq('channel_id', selectedChannel.id);
+
+      if (error) throw error;
+
+      const pinnedIds = new Set((data || []).map((p) => p.message_id));
+      setPinnedMessageIds(pinnedIds);
+    } catch (error) {
+      console.error('Error loading pinned messages:', error);
+    }
+  };
 
   const loadReplyCounts = async (messages: Message[]) => {
     const counts: Record<string, number> = {};
@@ -702,6 +735,56 @@ export default function ChatPage() {
         element.classList.add('highlight-message');
         setTimeout(() => element.classList.remove('highlight-message'), 2000);
       }
+    }
+  };
+
+  const handleTogglePin = async (messageId: string, isPinned: boolean) => {
+    if (!selectedChannel) return;
+
+    try {
+      const serverSlug = serverSlugs[selectedServer as keyof typeof serverSlugs];
+      const { data: serverData } = await supabase
+        .from('servers')
+        .select('id')
+        .eq('slug', serverSlug)
+        .maybeSingle();
+
+      if (!serverData) return;
+
+      if (isPinned) {
+        const { error } = await supabase
+          .from('pinned_messages')
+          .delete()
+          .eq('message_id', messageId)
+          .eq('channel_id', selectedChannel.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('pinned_messages')
+          .insert({
+            message_id: messageId,
+            channel_id: selectedChannel.id,
+            server_id: serverData.id,
+            pinned_by: userId,
+          });
+
+        if (error) throw error;
+      }
+
+      await loadPinnedMessages();
+    } catch (error: any) {
+      console.error('Error toggling pin:', error);
+      alert(`Failed to ${isPinned ? 'unpin' : 'pin'} message: ${error.message}`);
+    }
+  };
+
+  const handleJumpToMessage = (messageId: string) => {
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('highlight-message');
+      setTimeout(() => element.classList.remove('highlight-message'), 2000);
     }
   };
 
@@ -1548,56 +1631,68 @@ export default function ChatPage() {
           )}
         </div>
 
-        <div className="p-6 overflow-y-auto flex flex-col gap-3">
-          {viewMode === 'servers' ? (
-            messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                <div className="size-16 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                  <Hash size={32} style={{ color: 'var(--text-muted)' }} />
+        <div className="flex flex-col overflow-hidden">
+          {viewMode === 'servers' && selectedChannel && (
+            <PinnedMessagesBar
+              channelId={selectedChannel.id}
+              onJumpToMessage={handleJumpToMessage}
+              canUnpin={currentUserPowerLevel <= 6}
+              onUnpin={(messageId) => handleTogglePin(messageId, true)}
+            />
+          )}
+          <div className="p-6 overflow-y-auto flex flex-col gap-3 flex-1">
+            {viewMode === 'servers' ? (
+              messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                  <div className="size-16 rounded-full flex items-center justify-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                    <Hash size={32} style={{ color: 'var(--text-muted)' }} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Welcome to #{selectedChannel?.name}</h3>
+                    <p style={{ color: 'var(--text-muted)' }}>
+                      No messages yet. Be the first to start the conversation!
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Welcome to #{selectedChannel?.name}</h3>
-                  <p style={{ color: 'var(--text-muted)' }}>
-                    No messages yet. Be the first to start the conversation!
-                  </p>
-                </div>
-              </div>
+              ) : (
+                messages
+                  .filter((msg) => {
+                    if (showMentionsOnly) {
+                      const isMentioned = msg.content.includes(`@${username}`);
+                      const hasReplyToMe = messages.some(
+                        (m) => m.parent_message_id === msg.id && m.user_id === userId
+                      );
+                      return (isMentioned || hasReplyToMe) && msg.user_id !== userId;
+                    }
+                    return true;
+                  })
+                  .map((message) => (
+                    <MessageItem
+                      key={message.id}
+                      message={message}
+                      currentUserId={userId}
+                      currentUsername={username}
+                      isEditing={editingMessageId === message.id}
+                      editingContent={editingMessageContent}
+                      onEditStart={handleEditMessage}
+                      onEditSave={handleSaveMessageEdit}
+                      onEditCancel={handleCancelMessageEdit}
+                      onEditContentChange={setEditingMessageContent}
+                      onDelete={handleDeleteMessage}
+                      onReply={handleReply}
+                      replyCount={replyCounts[message.id] || 0}
+                      onJumpToReplies={handleViewReplies}
+                      onUserClick={(clickedUserId) => {
+                        setSelectedUserId(clickedUserId);
+                        setShowUserProfile(true);
+                      }}
+                      canPin={currentUserPowerLevel <= 6}
+                      isPinned={pinnedMessageIds.has(message.id)}
+                      onTogglePin={handleTogglePin}
+                    />
+                  ))
+              )
             ) : (
-              messages
-                .filter((msg) => {
-                  if (showMentionsOnly) {
-                    const isMentioned = msg.content.includes(`@${username}`);
-                    const hasReplyToMe = messages.some(
-                      (m) => m.parent_message_id === msg.id && m.user_id === userId
-                    );
-                    return (isMentioned || hasReplyToMe) && msg.user_id !== userId;
-                  }
-                  return true;
-                })
-                .map((message) => (
-                  <MessageItem
-                    key={message.id}
-                    message={message}
-                    currentUserId={userId}
-                    currentUsername={username}
-                    isEditing={editingMessageId === message.id}
-                    editingContent={editingMessageContent}
-                    onEditStart={handleEditMessage}
-                    onEditSave={handleSaveMessageEdit}
-                    onEditCancel={handleCancelMessageEdit}
-                    onEditContentChange={setEditingMessageContent}
-                    onDelete={handleDeleteMessage}
-                    onReply={handleReply}
-                    replyCount={replyCounts[message.id] || 0}
-                    onJumpToReplies={handleViewReplies}
-                    onUserClick={(clickedUserId) => {
-                      setSelectedUserId(clickedUserId);
-                      setShowUserProfile(true);
-                    }}
-                  />
-                ))
-            )
-          ) : (
             directMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                 <div className="size-16 rounded-full flex items-center justify-center text-white font-bold text-2xl" style={{ background: 'var(--accent-grad)' }}>
@@ -1746,9 +1841,10 @@ export default function ChatPage() {
                   </div>
                 );
               })
-            )
-          )}
-          <div ref={messagesEndRef} />
+              )
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         <div className="p-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
