@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign, Plus } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign, Plus, Trash } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
@@ -131,6 +131,8 @@ export default function ChatPage() {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [creatingChannel, setCreatingChannel] = useState(false);
+  const [hoveredChannelId, setHoveredChannelId] = useState<string | null>(null);
+  const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -1193,6 +1195,36 @@ export default function ChatPage() {
     }
   };
 
+  const handleDeleteChannel = async (channelId: string, channelName: string) => {
+    if (!confirm(`Are you sure you want to delete the channel #${channelName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingChannelId(channelId);
+
+    try {
+      const { error } = await supabase
+        .from('channels')
+        .delete()
+        .eq('id', channelId);
+
+      if (error) {
+        alert(`Failed to delete channel: ${error.message}`);
+      } else {
+        if (selectedChannel?.id === channelId) {
+          setSelectedChannel(null);
+          setMessages([]);
+        }
+        await loadChannels();
+      }
+    } catch (error: any) {
+      console.error('Error deleting channel:', error);
+      alert('An unexpected error occurred');
+    } finally {
+      setDeletingChannelId(null);
+    }
+  };
+
   if (!ready) {
     return (
       <div className="grid h-screen place-items-center" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
@@ -1318,11 +1350,37 @@ export default function ChatPage() {
                 channels.map((channel) => (
                   <div
                     key={channel.id}
-                    onClick={() => setSelectedChannel(channel)}
-                    className={`channel-item flex items-center space-x-2 ${selectedChannel?.id === channel.id ? 'active' : ''}`}
+                    onMouseEnter={() => setHoveredChannelId(channel.id)}
+                    onMouseLeave={() => setHoveredChannelId(null)}
+                    className={`channel-item flex items-center justify-between ${selectedChannel?.id === channel.id ? 'active' : ''} relative group`}
                   >
-                    <Hash size={18} />
-                    <span className="capitalize">{channel.name}</span>
+                    <div
+                      onClick={() => setSelectedChannel(channel)}
+                      className="flex items-center space-x-2 flex-1 cursor-pointer"
+                    >
+                      <Hash size={18} />
+                      <span className="capitalize">{channel.name}</span>
+                    </div>
+                    {currentUserPowerLevel <= 6 && hoveredChannelId === channel.id && deletingChannelId !== channel.id && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteChannel(channel.id, channel.name);
+                        }}
+                        className="p-1 rounded transition-colors flex-shrink-0"
+                        style={{ color: 'var(--text-muted)' }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                        title="Delete channel"
+                      >
+                        <Trash size={14} />
+                      </button>
+                    )}
+                    {deletingChannelId === channel.id && (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="w-3 h-3 border-2 border-t-2 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
+                      </div>
+                    )}
                   </div>
                 ))
               )}
