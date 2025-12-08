@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign, Plus, Trash } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign, Plus, Trash, Menu } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
@@ -133,6 +133,8 @@ export default function ChatPage() {
   const [creatingChannel, setCreatingChannel] = useState(false);
   const [hoveredChannelId, setHoveredChannelId] = useState<string | null>(null);
   const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showMobileMembers, setShowMobileMembers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -1241,13 +1243,275 @@ export default function ChatPage() {
   const currentServer = servers.find(s => s.id === selectedServer);
 
   return (
-    <div className="h-screen overflow-hidden grid" style={{
+    <div className="h-screen overflow-hidden flex flex-col md:grid" style={{
       gridTemplateColumns: viewMode === 'servers' && showMemberList ? '72px 240px 1fr 240px' : '72px 240px 1fr',
       background: 'var(--bg)',
       color: 'var(--text)'
     }}>
-      {/* Server List */}
-      <aside className="sidebar flex flex-col items-center py-3 gap-2 overflow-y-auto">
+      {/* Mobile Header Bar - Only visible on mobile */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+        <button
+          onClick={() => setShowMobileMenu(true)}
+          className="p-2 rounded-lg transition-colors"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <Menu size={24} />
+        </button>
+        <div className="flex items-center gap-2">
+          {viewMode === 'servers' ? (
+            <>
+              <Hash size={18} style={{ color: 'var(--text-muted)' }} />
+              <h2 className="font-semibold capitalize" style={{ color: 'var(--text)' }}>
+                {selectedChannel?.name || 'Select a channel'}
+              </h2>
+            </>
+          ) : (
+            <>
+              <div className="size-8 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: 'var(--accent-grad)' }}>
+                {selectedFriend?.username[0].toUpperCase() || '?'}
+              </div>
+              <h2 className="font-semibold" style={{ color: 'var(--text)' }}>
+                {selectedFriend?.username || 'Select a friend'}
+              </h2>
+            </>
+          )}
+        </div>
+        {viewMode === 'servers' && (
+          <button
+            onClick={() => setShowMobileMembers(true)}
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <Users size={24} />
+          </button>
+        )}
+      </div>
+
+      {/* Mobile Menu Drawer - Servers + Channels */}
+      {showMobileMenu && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex"
+          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowMobileMenu(false)}
+        >
+          <div
+            className="w-[85%] max-w-sm h-full overflow-y-auto flex"
+            style={{ background: 'var(--bg)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Server Icons Column */}
+            <div className="w-[72px] flex-shrink-0 sidebar flex flex-col items-center py-3 gap-2">
+              <button
+                onClick={() => {
+                  handleFriendsClick();
+                  setShowMobileMenu(false);
+                }}
+                className={`server-icon ${viewMode === 'friends' ? 'active' : ''}`}
+                title="Friends"
+                style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
+              >
+                <Users size={24} className="text-white" />
+              </button>
+              <div className="w-8 h-px my-1" style={{ background: 'var(--border)' }} />
+              {servers.map((server) => {
+                const Icon = server.icon;
+                const isActive = viewMode === 'servers' && selectedServer === server.id;
+                return (
+                  <button
+                    key={server.id}
+                    onClick={() => {
+                      handleServerChange(server.id);
+                    }}
+                    className={`server-icon ${isActive ? 'active' : ''}`}
+                    title={server.name}
+                    style={{ background: `linear-gradient(135deg, ${getGradientColors(server.gradient)})` }}
+                  >
+                    <Icon size={24} className="text-white" />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Channels/Friends List Column */}
+            <div className="flex-1 sidebar flex flex-col overflow-hidden">
+              <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="flex-1">
+                  <h1 className="font-bold text-lg" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+                    {viewMode === 'friends' ? 'Friends' : currentServer?.name}
+                  </h1>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    {viewMode === 'friends' ? 'Direct Messages' : 'The Legion Community'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowMobileMenu(false)}
+                  className="p-2 rounded-lg transition-colors ml-2"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {viewMode === 'servers' && currentServer && (
+                <div className="px-3 py-2">
+                  <button
+                    onClick={() => {
+                      navigate(`/servers/${serverSlugs[selectedServer as keyof typeof serverSlugs]}/learning`);
+                      setShowMobileMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm text-white transition-all duration-200"
+                    style={{
+                      background: `linear-gradient(135deg, ${getGradientColors(currentServer.gradient)})`,
+                    }}
+                  >
+                    {(() => {
+                      const Icon = currentServer.icon;
+                      return <Icon size={18} />;
+                    })()}
+                    <span>Courses</span>
+                  </button>
+                </div>
+              )}
+
+              <nav className="px-2 py-3 space-y-1 overflow-y-auto flex-1">
+                {viewMode === 'servers' ? (
+                  <>
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                        Channels
+                      </div>
+                      {currentUserPowerLevel <= 6 && (
+                        <button
+                          onClick={() => {
+                            setShowCreateChannel(true);
+                            setShowMobileMenu(false);
+                          }}
+                          className="p-1 rounded transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          title="Create Channel"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      )}
+                    </div>
+                    {loadingChannels ? (
+                      <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                        Loading channels...
+                      </div>
+                    ) : channelsError ? (
+                      <div className="px-3 py-2 text-sm" style={{ color: '#ef4444' }}>
+                        {channelsError}
+                      </div>
+                    ) : channels.length === 0 ? (
+                      <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                        No channels available
+                      </div>
+                    ) : (
+                      channels.map((channel) => (
+                        <div
+                          key={channel.id}
+                          className={`channel-item flex items-center ${selectedChannel?.id === channel.id ? 'active' : ''}`}
+                          onClick={() => {
+                            setSelectedChannel(channel);
+                            setShowMobileMenu(false);
+                          }}
+                        >
+                          <Hash size={18} />
+                          <span className="capitalize">{channel.name}</span>
+                        </div>
+                      ))
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                        Direct Messages
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowFriendRequests(true);
+                          setShowMobileMenu(false);
+                        }}
+                        className="p-1 rounded transition-colors"
+                        style={{ color: 'var(--text-muted)' }}
+                        title="Friend Requests"
+                      >
+                        <UserPlus size={16} />
+                      </button>
+                    </div>
+                    {friends.length === 0 ? (
+                      <div className="px-3 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                        No friends yet
+                      </div>
+                    ) : (
+                      friends.map((friend) => (
+                        <div
+                          key={friend.id}
+                          className={`channel-item flex items-center ${selectedFriend?.id === friend.id ? 'active' : ''}`}
+                          onClick={() => {
+                            handleFriendClick(friend);
+                            setShowMobileMenu(false);
+                          }}
+                        >
+                          <div className="size-8 rounded-full flex items-center justify-center text-white font-bold text-xs mr-2" style={{ background: 'var(--accent-grad)' }}>
+                            {friend.username[0].toUpperCase()}
+                          </div>
+                          <span>{friend.username}</span>
+                        </div>
+                      ))
+                    )}
+                  </>
+                )}
+              </nav>
+
+              <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                <button
+                  onClick={() => {
+                    setShowSettings(true);
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+                >
+                  <Settings size={18} />
+                  <span className="font-medium">Settings</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Members Drawer */}
+      {showMobileMembers && viewMode === 'servers' && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex justify-end"
+          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowMobileMembers(false)}
+        >
+          <div
+            className="w-[85%] max-w-sm h-full overflow-y-auto"
+            style={{ background: 'var(--bg)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+              <h2 className="font-bold text-lg" style={{ color: 'var(--text)' }}>Members</h2>
+              <button
+                onClick={() => setShowMobileMembers(false)}
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Server List - Hidden on mobile */}
+      <aside className="hidden md:flex sidebar flex-col items-center py-3 gap-2 overflow-y-auto">
         <button
           onClick={handleFriendsClick}
           className={`server-icon ${viewMode === 'friends' ? 'active' : ''}`}
@@ -1274,8 +1538,8 @@ export default function ChatPage() {
         })}
       </aside>
 
-      {/* Channel/Friends Sidebar */}
-      <aside className="sidebar flex flex-col overflow-hidden">
+      {/* Desktop Channel/Friends Sidebar - Hidden on mobile */}
+      <aside className="hidden md:flex sidebar flex-col overflow-hidden">
         <div className="p-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <h1 className="font-bold text-lg" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
             {viewMode === 'friends' ? 'Friends' : currentServer?.name}
@@ -1761,8 +2025,9 @@ export default function ChatPage() {
       )}
 
       {/* Chat section */}
-      <main className="grid grid-rows-[auto_1fr_auto] overflow-hidden">
-        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+      <main className="flex-1 md:grid grid-rows-[auto_1fr_auto] overflow-hidden flex flex-col">
+        {/* Desktop Header - Hidden on mobile */}
+        <div className="hidden md:flex px-6 py-4 items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center space-x-2">
             {viewMode === 'servers' ? (
               <>
@@ -2177,8 +2442,12 @@ export default function ChatPage() {
         </div>
       </main>
 
-      {/* Member List Sidebar - Only show for servers, not for friends */}
-      {viewMode === 'servers' && showMemberList && <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />}
+      {/* Desktop Member List Sidebar - Hidden on mobile */}
+      {viewMode === 'servers' && showMemberList && (
+        <aside className="hidden md:block">
+          <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />
+        </aside>
+      )}
 
       {/* User Profile Modal */}
       {showUserProfile && selectedUserId && (

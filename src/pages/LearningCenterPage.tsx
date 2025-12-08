@@ -266,7 +266,7 @@ export default function LearningCenterPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
-      <header className="p-6 border-b" style={{ borderColor: 'var(--border)' }}>
+      <header className="p-4 md:p-6 border-b" style={{ borderColor: 'var(--border)' }}>
         <button
           onClick={() => navigate('/chat')}
           className="flex items-center gap-2 mb-4 text-sm font-medium transition-colors"
@@ -278,28 +278,38 @@ export default function LearningCenterPage() {
           <span>Back to {serverName || 'Server'}</span>
         </button>
 
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4 md:mb-6">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'var(--accent-grad)' }}
           >
-            <BookOpen size={24} className="text-white" />
+            <BookOpen size={20} className="md:w-6 md:h-6 text-white" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold truncate" style={{ color: 'var(--text)' }}>
               Learning Center
             </h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-xs md:text-sm truncate" style={{ color: 'var(--text-muted)' }}>
               {serverName}
             </p>
           </div>
+          {canUpload && (
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="md:hidden p-2 rounded-lg text-white transition-all flex-shrink-0"
+              style={{ background: 'var(--accent-grad)' }}
+              title="Upload Course"
+            >
+              <Plus size={20} />
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0">
             <button
               onClick={() => setActiveTab('categories')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              className={`px-3 md:px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'categories' ? 'shadow-md' : ''
               }`}
               style={{
@@ -311,7 +321,7 @@ export default function LearningCenterPage() {
             </button>
             <button
               onClick={() => setActiveTab('in-progress')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              className={`px-3 md:px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'in-progress' ? 'shadow-md' : ''
               }`}
               style={{
@@ -323,7 +333,7 @@ export default function LearningCenterPage() {
             </button>
             <button
               onClick={() => setActiveTab('bookmarks')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              className={`px-3 md:px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'bookmarks' ? 'shadow-md' : ''
               }`}
               style={{
@@ -338,7 +348,7 @@ export default function LearningCenterPage() {
           {canUpload && (
             <button
               onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white transition-all"
+              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white transition-all"
               style={{ background: 'var(--accent-grad)' }}
               onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
               onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
@@ -350,7 +360,7 @@ export default function LearningCenterPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-6 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <p style={{ color: 'var(--text-muted)' }}>Loading courses...</p>
