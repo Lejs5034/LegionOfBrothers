@@ -1511,10 +1511,11 @@ export default function ChatPage() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="w-[85%] max-w-sm h-full overflow-y-auto sidebar"
+              className="w-[85%] max-w-sm h-full overflow-y-auto"
+              style={{ background: 'var(--bg)' }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="p-4 flex items-center justify-between sidebar" style={{ borderBottom: '1px solid var(--border)' }}>
                 <h2 className="font-bold text-lg" style={{ color: 'var(--text)' }}>Members</h2>
                 <button
                   onClick={() => setShowMobileMembers(false)}
