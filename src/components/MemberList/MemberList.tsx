@@ -23,6 +23,7 @@ interface MembersByRole {
 
 interface MemberListProps {
   serverId: string;
+  isMobile?: boolean;
 }
 
 const adjustColorBrightness = (hex: string, percent: number) => {
@@ -33,7 +34,7 @@ const adjustColorBrightness = (hex: string, percent: number) => {
   return `rgb(${r}, ${g}, ${b})`;
 };
 
-export default function MemberList({ serverId }: MemberListProps) {
+export default function MemberList({ serverId, isMobile = false }: MemberListProps) {
   const [membersByRole, setMembersByRole] = useState<MembersByRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
@@ -152,7 +153,13 @@ export default function MemberList({ serverId }: MemberListProps) {
 
   if (loading) {
     return (
-      <div className="w-60 flex items-center justify-center" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}>
+      <div
+        className={`flex items-center justify-center ${isMobile ? 'w-full' : 'w-60'}`}
+        style={{
+          background: isMobile ? 'transparent' : 'var(--surface)',
+          borderLeft: isMobile ? 'none' : '1px solid var(--border)'
+        }}
+      >
         <div style={{ color: 'var(--text-muted)' }}>Loading members...</div>
       </div>
     );
@@ -160,7 +167,13 @@ export default function MemberList({ serverId }: MemberListProps) {
 
   if (error) {
     return (
-      <div className="w-60 flex flex-col items-center justify-center p-4" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}>
+      <div
+        className={`flex flex-col items-center justify-center p-4 ${isMobile ? 'w-full' : 'w-60'}`}
+        style={{
+          background: isMobile ? 'transparent' : 'var(--surface)',
+          borderLeft: isMobile ? 'none' : '1px solid var(--border)'
+        }}
+      >
         <div className="text-sm text-center" style={{ color: '#ef4444' }}>{error}</div>
       </div>
     );
@@ -168,14 +181,26 @@ export default function MemberList({ serverId }: MemberListProps) {
 
   if (membersByRole.length === 0) {
     return (
-      <div className="w-60 flex flex-col items-center justify-center p-4" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}>
+      <div
+        className={`flex flex-col items-center justify-center p-4 ${isMobile ? 'w-full' : 'w-60'}`}
+        style={{
+          background: isMobile ? 'transparent' : 'var(--surface)',
+          borderLeft: isMobile ? 'none' : '1px solid var(--border)'
+        }}
+      >
         <div className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>No roles configured for this server</div>
       </div>
     );
   }
 
   return (
-    <div className="w-60 flex flex-col overflow-hidden" style={{ background: 'var(--surface)', borderLeft: '1px solid rgba(255, 255, 255, 0.06)' }}>
+    <div
+      className={`flex flex-col overflow-hidden ${isMobile ? 'w-full' : 'w-60'}`}
+      style={{
+        background: isMobile ? 'transparent' : 'var(--surface)',
+        borderLeft: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.06)'
+      }}
+    >
       <div className="flex-1 overflow-y-auto p-4">
         {membersByRole.map(({ role, members }, index) => (
           <div key={role.id} className="mb-6">

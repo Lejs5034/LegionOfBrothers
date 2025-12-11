@@ -1525,7 +1525,10 @@ export default function ChatPage() {
                   <X size={20} />
                 </button>
               </div>
-              <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />
+              <MemberList
+                serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer}
+                isMobile={true}
+              />
             </motion.div>
           </motion.div>
         )}
