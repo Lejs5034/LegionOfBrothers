@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign, Plus, Trash, Menu } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
 import MemberList from '../components/MemberList/MemberList';
@@ -1288,17 +1289,26 @@ export default function ChatPage() {
       </div>
 
       {/* Mobile Menu Drawer - Servers + Channels */}
-      {showMobileMenu && (
-        <div
-          className="md:hidden fixed inset-0 z-50 flex"
-          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={() => setShowMobileMenu(false)}
-        >
-          <div
-            className="w-[85%] max-w-sm h-full overflow-y-auto flex"
-            style={{ background: 'var(--bg)' }}
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {showMobileMenu && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden fixed inset-0 z-50 flex"
+            style={{ background: 'rgba(0, 0, 0, 0.4)' }}
+            onClick={() => setShowMobileMenu(false)}
           >
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="w-[85%] max-w-sm h-full overflow-y-auto flex"
+              style={{ background: 'var(--bg)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
             {/* Server Icons Column */}
             <div className="w-[72px] flex-shrink-0 sidebar flex flex-col items-center py-3 gap-2">
               <button
@@ -1479,36 +1489,46 @@ export default function ChatPage() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Members Drawer */}
-      {showMobileMembers && viewMode === 'servers' && (
-        <div
-          className="md:hidden fixed inset-0 z-50 flex justify-end"
-          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={() => setShowMobileMembers(false)}
-        >
-          <div
-            className="w-[85%] max-w-sm h-full overflow-y-auto"
-            style={{ background: 'var(--bg)' }}
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {showMobileMembers && viewMode === 'servers' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden fixed inset-0 z-50 flex justify-end"
+            style={{ background: 'rgba(0, 0, 0, 0.4)' }}
+            onClick={() => setShowMobileMembers(false)}
           >
-            <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
-              <h2 className="font-bold text-lg" style={{ color: 'var(--text)' }}>Members</h2>
-              <button
-                onClick={() => setShowMobileMembers(false)}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />
-          </div>
-        </div>
-      )}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="w-[85%] max-w-sm h-full overflow-y-auto sidebar"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
+                <h2 className="font-bold text-lg" style={{ color: 'var(--text)' }}>Members</h2>
+                <button
+                  onClick={() => setShowMobileMembers(false)}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <MemberList serverId={serverSlugs[selectedServer as keyof typeof serverSlugs] || selectedServer} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Desktop Server List - Hidden on mobile */}
       <aside className="hidden md:flex sidebar flex-col items-center py-3 gap-2 overflow-y-auto">
