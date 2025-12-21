@@ -10,6 +10,7 @@ interface Course {
   cover_image_url: string | null;
   category: string;
   created_at: string;
+  video_url: string | null;
 }
 
 interface CourseProgress {
@@ -45,6 +46,9 @@ export default function LearningCenterPage() {
     cover_image_url: '',
   });
   const [uploading, setUploading] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedCourse, setSelectedCourse] = useState<CourseWithProgress | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -179,6 +183,7 @@ export default function LearningCenterPage() {
         .eq('id', course.progress.id);
     }
 
+    setSelectedCourse(course);
     loadCourses();
   };
 
@@ -225,8 +230,13 @@ export default function LearningCenterPage() {
   const handleUploadCourse = async () => {
     if (!serverId || !userId) return;
     if (!uploadForm.title || !uploadForm.description || !uploadForm.category) return;
+    if (!videoFile) {
+      alert('Please select a video file to upload.');
+      return;
+    }
 
     setUploading(true);
+    setUploadProgress(0);
 
     try {
       const { data: serverData } = await supabase
@@ -237,21 +247,50 @@ export default function LearningCenterPage() {
 
       if (!serverData) return;
 
+      const fileExt = videoFile.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+
+      setUploadProgress(25);
+
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(fileName, videoFile, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Error uploading video:', uploadError);
+        alert('Failed to upload video file.');
+        return;
+      }
+
+      setUploadProgress(75);
+
+      const { data: urlData } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(fileName);
+
+      const videoUrl = urlData.publicUrl;
+
       const { error } = await supabase.from('courses').insert({
         server_id: serverData.id,
         title: uploadForm.title,
         description: uploadForm.description,
         category: uploadForm.category,
         cover_image_url: uploadForm.cover_image_url || null,
+        video_url: videoUrl,
         created_by: userId,
       });
 
       if (error) {
-        console.error('Error uploading course:', error);
-        alert('Failed to upload course. Please check your permissions.');
+        console.error('Error creating course:', error);
+        alert('Failed to create course. Please check your permissions.');
       } else {
+        setUploadProgress(100);
         setShowUploadModal(false);
         setUploadForm({ title: '', description: '', category: '', cover_image_url: '' });
+        setVideoFile(null);
         loadCourses();
       }
     } catch (error) {
@@ -259,6 +298,7 @@ export default function LearningCenterPage() {
       alert('An error occurred while uploading the course.');
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -568,6 +608,28 @@ export default function LearningCenterPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+                  Video File <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                  className="w-full px-3 py-2 rounded-lg"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                />
+                {videoFile && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Selected: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
                   Cover Image URL (optional)
                 </label>
                 <input
@@ -583,6 +645,24 @@ export default function LearningCenterPage() {
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
+
+              {uploading && uploadProgress > 0 && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                    <div
+                      className="h-full transition-all"
+                      style={{
+                        width: `${uploadProgress}%`,
+                        background: 'var(--accent-grad)',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button
@@ -600,18 +680,18 @@ export default function LearningCenterPage() {
                 </button>
                 <button
                   onClick={handleUploadCourse}
-                  disabled={uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category}
+                  disabled={uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category || !videoFile}
                   className="flex-1 px-4 py-2 rounded-lg font-medium text-sm text-white transition-all"
                   style={{
-                    background: uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category
+                    background: uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category || !videoFile
                       ? 'var(--border)'
                       : 'var(--accent-grad)',
-                    cursor: uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category
+                    cursor: uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category || !videoFile
                       ? 'not-allowed'
                       : 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    if (!uploading && uploadForm.title && uploadForm.description && uploadForm.category) {
+                    if (!uploading && uploadForm.title && uploadForm.description && uploadForm.category && videoFile) {
                       e.currentTarget.style.filter = 'brightness(1.1)';
                     }
                   }}
@@ -620,6 +700,93 @@ export default function LearningCenterPage() {
                   {uploading ? 'Uploading...' : 'Upload Course'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedCourse && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.9)' }}
+          onClick={() => setSelectedCourse(null)}
+        >
+          <div
+            className="rounded-xl w-full max-w-4xl"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
+              <div>
+                <h2 className="text-xl font-bold" style={{ color: 'var(--text)' }}>
+                  {selectedCourse.title}
+                </h2>
+                <span
+                  className="inline-block px-2 py-1 text-xs font-medium rounded mt-1"
+                  style={{
+                    background: 'var(--accent-grad)',
+                    color: '#ffffff',
+                  }}
+                >
+                  {selectedCourse.category}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedCourse(null)}
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              {selectedCourse.video_url ? (
+                <video
+                  controls
+                  className="w-full rounded-lg"
+                  style={{ maxHeight: '60vh' }}
+                  src={selectedCourse.video_url}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              ) : (
+                <div
+                  className="w-full h-64 flex items-center justify-center rounded-lg"
+                  style={{ background: 'var(--bg)' }}
+                >
+                  <p style={{ color: 'var(--text-muted)' }}>No video available for this course</p>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  {selectedCourse.description}
+                </p>
+              </div>
+
+              {selectedCourse.progress && (
+                <div className="mt-4">
+                  <div className="flex justify-between text-sm mb-2" style={{ color: 'var(--text)' }}>
+                    <span className="font-medium">Your Progress</span>
+                    <span>{selectedCourse.progress.progress_percent}%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                    <div
+                      className="h-full transition-all"
+                      style={{
+                        width: `${selectedCourse.progress.progress_percent}%`,
+                        background: 'var(--accent-grad)',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
