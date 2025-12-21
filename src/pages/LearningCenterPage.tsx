@@ -54,7 +54,8 @@ export default function LearningCenterPage() {
     userId: '',
     serverIdReal: '',
     serverNameReal: '',
-    userRoles: [] as string[],
+    globalRole: '',
+    serverRoles: [] as string[],
     canUpload: false,
     reason: '',
   });
@@ -83,21 +84,23 @@ export default function LearningCenterPage() {
 
       if (!serverData) return;
 
-      const { data: memberData } = await supabase
-        .from('server_members')
-        .select('role_id, server_roles(name)')
-        .eq('user_id', userId);
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('global_rank, rank_hierarchy(display_name, power_level)')
+        .eq('id', userId)
+        .maybeSingle();
 
-      const allRoles = memberData?.map((m: any) => m.server_roles?.name).filter(Boolean) || [];
+      const globalRankDisplay = profileData?.rank_hierarchy?.display_name || 'User';
+      const globalPowerLevel = profileData?.rank_hierarchy?.power_level || 999;
 
-      const { data: memberInThisServer } = await supabase
+      const { data: serverRolesData } = await supabase
         .from('server_members')
         .select('role_id, server_roles(name)')
         .eq('user_id', userId)
-        .eq('server_id', serverData.id)
-        .maybeSingle();
+        .eq('server_id', serverData.id);
 
-      const roleInThisServer = memberInThisServer?.server_roles?.name || 'No role';
+      const serverRoles = serverRolesData?.map((m: any) => m.server_roles?.name).filter(Boolean) || [];
+      const roleInThisServer = serverRoles[0] || 'No server role';
 
       const { data, error } = await supabase.rpc('can_upload_courses_to_server', {
         user_id: userId,
@@ -108,40 +111,43 @@ export default function LearningCenterPage() {
       setCanUpload(canUploadResult);
 
       let reason = '';
-      const strongestRoles = ['The Head', 'App Developers'];
-      const professorRoles = [
-        'Business Mastery Professor',
-        'Crypto Trading Professor',
-        'Copywriting Professor',
-        'Fitness Professor',
-      ];
+      const isGlobalRole = globalPowerLevel <= 2;
 
-      const isStrongestRole = allRoles.some((r: string) => strongestRoles.includes(r));
-      const isProfessor = allRoles.some((r: string) => professorRoles.includes(r));
-
-      if (isStrongestRole) {
+      if (isGlobalRole) {
         reason = canUploadResult
-          ? `${allRoles.find((r: string) => strongestRoles.includes(r))} can upload to any server`
-          : 'Strongest role detected but permission check failed';
-      } else if (isProfessor) {
-        const userProfessorRole = allRoles.find((r: string) => professorRoles.includes(r));
-        if (canUploadResult) {
-          reason = `${userProfessorRole} can upload to their own server (${serverData.name})`;
-        } else {
-          reason = `${userProfessorRole} can only upload to their own server, not ${serverData.name}`;
-        }
+          ? `Global role override: ${globalRankDisplay} can upload to any server`
+          : `Global role detected but permission check failed`;
       } else {
-        reason = `Role "${roleInThisServer}" does not have upload permissions`;
+        const professorRoles = [
+          'Business Mastery Professor',
+          'Crypto Trading Professor',
+          'Copywriting Professor',
+          'Fitness Professor',
+        ];
+
+        const isProfessor = serverRoles.some((r: string) => professorRoles.includes(r));
+
+        if (isProfessor) {
+          const userProfessorRole = serverRoles.find((r: string) => professorRoles.includes(r));
+          if (canUploadResult) {
+            reason = `${userProfessorRole} can upload to their own server (${serverData.name})`;
+          } else {
+            reason = `${userProfessorRole} can only upload to their own server, not ${serverData.name}`;
+          }
+        } else {
+          reason = `Role "${roleInThisServer}" does not have upload permissions`;
+        }
       }
 
-      const isDebugUser = allRoles.some((r: string) => ['The Head', 'App Developers'].includes(r));
+      const isDebugUser = globalPowerLevel <= 2;
       setShowDebugPanel(isDebugUser);
 
       setDebugInfo({
         userId,
         serverIdReal: serverData.id,
         serverNameReal: serverData.name,
-        userRoles: allRoles,
+        globalRole: globalRankDisplay,
+        serverRoles,
         canUpload: canUploadResult,
         reason,
       });
@@ -496,8 +502,12 @@ export default function LearningCenterPage() {
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Server Name:</span> {debugInfo.serverNameReal}
             </div>
             <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>User Roles (all servers):</span>{' '}
-              {debugInfo.userRoles.length > 0 ? debugInfo.userRoles.join(', ') : 'None'}
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Global Role:</span>{' '}
+              {debugInfo.globalRole}
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Server-Specific Roles:</span>{' '}
+              {debugInfo.serverRoles.length > 0 ? debugInfo.serverRoles.join(', ') : 'None'}
             </div>
             <div>
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Can Upload Courses:</span>{' '}
