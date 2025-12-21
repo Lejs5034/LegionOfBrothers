@@ -73,7 +73,14 @@ export default function LearningCenterPage() {
   }, [navigate]);
 
   const checkUploadPermission = useCallback(async () => {
-    if (!serverId || !userId) return;
+    console.log('🔍 [PERMISSION CHECK] Starting permission check...');
+    console.log('🔍 [PERMISSION CHECK] serverId:', serverId);
+    console.log('🔍 [PERMISSION CHECK] userId:', userId);
+
+    if (!serverId || !userId) {
+      console.log('❌ [PERMISSION CHECK] Missing serverId or userId, aborting');
+      return;
+    }
 
     try {
       const { data: serverData } = await supabase
@@ -82,7 +89,12 @@ export default function LearningCenterPage() {
         .eq('slug', serverId)
         .maybeSingle();
 
-      if (!serverData) return;
+      console.log('🔍 [PERMISSION CHECK] Server data:', serverData);
+
+      if (!serverData) {
+        console.log('❌ [PERMISSION CHECK] Server not found, aborting');
+        return;
+      }
 
       const { data: profileData } = await supabase
         .from('profiles')
@@ -90,8 +102,12 @@ export default function LearningCenterPage() {
         .eq('id', userId)
         .maybeSingle();
 
+      console.log('🔍 [PERMISSION CHECK] Profile data:', profileData);
+
       const globalRankDisplay = profileData?.rank_hierarchy?.display_name || 'User';
       const globalPowerLevel = profileData?.rank_hierarchy?.power_level || 999;
+
+      console.log('🔍 [PERMISSION CHECK] Global role:', globalRankDisplay, 'Power level:', globalPowerLevel);
 
       const { data: serverRolesData } = await supabase
         .from('server_members')
@@ -99,15 +115,23 @@ export default function LearningCenterPage() {
         .eq('user_id', userId)
         .eq('server_id', serverData.id);
 
+      console.log('🔍 [PERMISSION CHECK] Server roles data:', serverRolesData);
+
       const serverRoles = serverRolesData?.map((m: any) => m.server_roles?.name).filter(Boolean) || [];
       const roleInThisServer = serverRoles[0] || 'No server role';
 
+      console.log('🔍 [PERMISSION CHECK] Calling can_upload_courses_to_server RPC...');
       const { data, error } = await supabase.rpc('can_upload_courses_to_server', {
         user_id: userId,
         target_server_id: serverData.id,
       });
 
+      console.log('🔍 [PERMISSION CHECK] RPC result - data:', data, 'error:', error);
+
       const canUploadResult = !error && data === true;
+
+      console.log('✅ [PERMISSION CHECK] Final result - canUpload:', canUploadResult);
+
       setCanUpload(canUploadResult);
 
       let reason = '';
@@ -139,6 +163,8 @@ export default function LearningCenterPage() {
         }
       }
 
+      console.log('🔍 [PERMISSION CHECK] Reason:', reason);
+
       const isDebugUser = globalPowerLevel <= 2;
       setShowDebugPanel(isDebugUser);
 
@@ -151,8 +177,10 @@ export default function LearningCenterPage() {
         canUpload: canUploadResult,
         reason,
       });
+
+      console.log('🔍 [PERMISSION CHECK] Debug panel visible:', isDebugUser);
     } catch (error) {
-      console.error('Error checking upload permission:', error);
+      console.error('❌ [PERMISSION CHECK] Error checking upload permission:', error);
     }
   }, [serverId, userId]);
 
