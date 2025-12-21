@@ -49,6 +49,15 @@ export default function LearningCenterPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedCourse, setSelectedCourse] = useState<CourseWithProgress | null>(null);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [debugInfo, setDebugInfo] = useState({
+    userId: '',
+    serverIdReal: '',
+    serverNameReal: '',
+    userRoles: [] as string[],
+    canUpload: false,
+    reason: '',
+  });
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -68,20 +77,74 @@ export default function LearningCenterPage() {
     try {
       const { data: serverData } = await supabase
         .from('servers')
-        .select('id')
+        .select('id, name')
         .eq('slug', serverId)
         .maybeSingle();
 
       if (!serverData) return;
+
+      const { data: memberData } = await supabase
+        .from('server_members')
+        .select('role_id, server_roles(name)')
+        .eq('user_id', userId);
+
+      const allRoles = memberData?.map((m: any) => m.server_roles?.name).filter(Boolean) || [];
+
+      const { data: memberInThisServer } = await supabase
+        .from('server_members')
+        .select('role_id, server_roles(name)')
+        .eq('user_id', userId)
+        .eq('server_id', serverData.id)
+        .maybeSingle();
+
+      const roleInThisServer = memberInThisServer?.server_roles?.name || 'No role';
 
       const { data, error } = await supabase.rpc('can_upload_courses_to_server', {
         user_id: userId,
         target_server_id: serverData.id,
       });
 
-      if (!error) {
-        setCanUpload(data === true);
+      const canUploadResult = !error && data === true;
+      setCanUpload(canUploadResult);
+
+      let reason = '';
+      const strongestRoles = ['The Head', 'App Developers'];
+      const professorRoles = [
+        'Business Mastery Professor',
+        'Crypto Trading Professor',
+        'Copywriting Professor',
+        'Fitness Professor',
+      ];
+
+      const isStrongestRole = allRoles.some((r: string) => strongestRoles.includes(r));
+      const isProfessor = allRoles.some((r: string) => professorRoles.includes(r));
+
+      if (isStrongestRole) {
+        reason = canUploadResult
+          ? `${allRoles.find((r: string) => strongestRoles.includes(r))} can upload to any server`
+          : 'Strongest role detected but permission check failed';
+      } else if (isProfessor) {
+        const userProfessorRole = allRoles.find((r: string) => professorRoles.includes(r));
+        if (canUploadResult) {
+          reason = `${userProfessorRole} can upload to their own server (${serverData.name})`;
+        } else {
+          reason = `${userProfessorRole} can only upload to their own server, not ${serverData.name}`;
+        }
+      } else {
+        reason = `Role "${roleInThisServer}" does not have upload permissions`;
       }
+
+      const isDebugUser = allRoles.some((r: string) => ['The Head', 'App Developers'].includes(r));
+      setShowDebugPanel(isDebugUser);
+
+      setDebugInfo({
+        userId,
+        serverIdReal: serverData.id,
+        serverNameReal: serverData.name,
+        userRoles: allRoles,
+        canUpload: canUploadResult,
+        reason,
+      });
     } catch (error) {
       console.error('Error checking upload permission:', error);
     }
@@ -399,6 +462,55 @@ export default function LearningCenterPage() {
           )}
         </div>
       </header>
+
+      {showDebugPanel && (
+        <div
+          className="mx-4 md:mx-6 mt-4 p-4 rounded-xl text-xs font-mono"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+              Debug: Upload Permissions
+            </h3>
+            <span
+              className="px-2 py-1 rounded text-xs font-medium"
+              style={{
+                background: debugInfo.canUpload ? '#10b981' : '#ef4444',
+                color: '#ffffff',
+              }}
+            >
+              {debugInfo.canUpload ? 'CAN UPLOAD' : 'CANNOT UPLOAD'}
+            </span>
+          </div>
+          <div className="space-y-1" style={{ color: 'var(--text-muted)' }}>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>User ID:</span> {debugInfo.userId}
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Server ID:</span> {debugInfo.serverIdReal}
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Server Name:</span> {debugInfo.serverNameReal}
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>User Roles (all servers):</span>{' '}
+              {debugInfo.userRoles.length > 0 ? debugInfo.userRoles.join(', ') : 'None'}
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Can Upload Courses:</span>{' '}
+              <span style={{ color: debugInfo.canUpload ? '#10b981' : '#ef4444' }}>
+                {debugInfo.canUpload ? 'true' : 'false'}
+              </span>
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Reason:</span> {debugInfo.reason}
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
         {loading ? (
