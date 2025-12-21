@@ -150,15 +150,24 @@ export default function LearningCenterPage() {
           'Fitness Professor',
         ];
 
-        const isProfessor = serverRoles.some((r: string) => professorRoles.includes(r));
+        const allowedServerRoles = [
+          'The Head',
+          'Admins',
+          'App Developers',
+          ...professorRoles,
+        ];
 
-        if (isProfessor) {
+        const isProfessor = serverRoles.some((r: string) => professorRoles.includes(r));
+        const isAllowedRole = serverRoles.some((r: string) => allowedServerRoles.includes(r));
+
+        if (canUploadResult && isAllowedRole) {
+          const userRole = serverRoles.find((r: string) => allowedServerRoles.includes(r));
+          reason = `Server role "${userRole}" has upload permissions in ${serverData.name}`;
+        } else if (isProfessor) {
           const userProfessorRole = serverRoles.find((r: string) => professorRoles.includes(r));
-          if (canUploadResult) {
-            reason = `${userProfessorRole} can upload to their own server (${serverData.name})`;
-          } else {
-            reason = `${userProfessorRole} can only upload to their own server, not ${serverData.name}`;
-          }
+          reason = `${userProfessorRole} can only upload to their own server, not ${serverData.name}`;
+        } else if (!canUploadResult) {
+          reason = `Server role "${roleInThisServer}" does not have upload permissions (requires rank ≤ 2)`;
         } else {
           reason = `Role "${roleInThisServer}" does not have upload permissions`;
         }
