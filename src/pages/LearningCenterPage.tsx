@@ -55,6 +55,7 @@ export default function LearningCenterPage() {
     serverIdReal: '',
     serverNameReal: '',
     globalRole: '',
+    globalPowerLevel: 999,
     serverRoles: [] as string[],
     canUpload: false,
     reason: '',
@@ -165,20 +166,20 @@ export default function LearningCenterPage() {
 
       console.log('🔍 [PERMISSION CHECK] Reason:', reason);
 
-      const isDebugUser = globalPowerLevel <= 2;
-      setShowDebugPanel(isDebugUser);
+      setShowDebugPanel(true);
 
       setDebugInfo({
         userId,
         serverIdReal: serverData.id,
         serverNameReal: serverData.name,
         globalRole: globalRankDisplay,
+        globalPowerLevel,
         serverRoles,
         canUpload: canUploadResult,
         reason,
       });
 
-      console.log('🔍 [PERMISSION CHECK] Debug panel visible:', isDebugUser);
+      console.log('🔍 [PERMISSION CHECK] Debug panel visible: true (always shown)');
     } catch (error) {
       console.error('❌ [PERMISSION CHECK] Error checking upload permission:', error);
     }
@@ -501,14 +502,20 @@ export default function LearningCenterPage() {
         <div
           className="mx-4 md:mx-6 mt-4 p-4 rounded-xl text-xs font-mono"
           style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
+            background: 'linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%)',
+            border: '2px solid #fbbf24',
+            boxShadow: '0 4px 12px rgba(251, 191, 36, 0.2)',
           }}
         >
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-              Debug: Upload Permissions
-            </h3>
+            <div>
+              <h3 className="font-bold text-sm" style={{ color: '#fbbf24' }}>
+                DEBUG MODE (Temporary)
+              </h3>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Permission check diagnostic panel - visible to all users
+              </p>
+            </div>
             <span
               className="px-2 py-1 rounded text-xs font-medium"
               style={{
@@ -531,11 +538,19 @@ export default function LearningCenterPage() {
             </div>
             <div>
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Global Role:</span>{' '}
-              {debugInfo.globalRole}
+              {debugInfo.globalRole} (Power Level: {debugInfo.globalPowerLevel})
             </div>
             <div>
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Server-Specific Roles:</span>{' '}
               {debugInfo.serverRoles.length > 0 ? debugInfo.serverRoles.join(', ') : 'None'}
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Detected Highest Role:</span>{' '}
+              {debugInfo.globalPowerLevel <= 2
+                ? `${debugInfo.globalRole} (Global Override)`
+                : debugInfo.serverRoles.length > 0
+                  ? debugInfo.serverRoles[0]
+                  : debugInfo.globalRole}
             </div>
             <div>
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Can Upload Courses:</span>{' '}
