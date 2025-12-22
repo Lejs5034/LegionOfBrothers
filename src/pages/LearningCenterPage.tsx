@@ -54,10 +54,9 @@ export default function LearningCenterPage() {
     userId: '',
     serverIdReal: '',
     serverNameReal: '',
-    globalRole: '',
-    globalPowerLevel: 999,
-    serverRoles: [] as string[],
-    allowedUploaderRoles: [] as string[],
+    userServerRoleKeys: [] as string[],
+    allowedUploaderRoleKeys: [] as string[],
+    intersection: [] as string[],
     canUpload: false,
     reason: '',
   });
@@ -98,47 +97,29 @@ export default function LearningCenterPage() {
         return;
       }
 
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('global_rank, rank_hierarchy(display_name, power_level)')
-        .eq('id', userId)
-        .maybeSingle();
-
-      console.log('🔍 [PERMISSION CHECK] Profile data:', profileData);
-
-      const globalRankDisplay = profileData?.rank_hierarchy?.display_name || 'User';
-      const globalPowerLevel = profileData?.rank_hierarchy?.power_level || 999;
-
-      console.log('🔍 [PERMISSION CHECK] Global role:', globalRankDisplay, 'Power level:', globalPowerLevel);
+      const allowedUploaderRoleKeys = ['the_head', 'admins', 'app_developers'];
 
       const { data: serverRolesData } = await supabase
         .from('server_members')
-        .select('role_id, server_roles(name)')
+        .select('role_id, server_roles(role_key, name)')
         .eq('user_id', userId)
         .eq('server_id', serverData.id);
 
       console.log('🔍 [PERMISSION CHECK] Server roles data:', serverRolesData);
 
-      const serverRoles = serverRolesData?.map((m: any) => m.server_roles?.name).filter(Boolean) || [];
-      const roleInThisServer = serverRoles[0] || 'No server role';
+      const userServerRoleKeys = serverRolesData?.map((m: any) => m.server_roles?.role_key).filter(Boolean) || [];
+      const userServerRoleNames = serverRolesData?.map((m: any) => m.server_roles?.name).filter(Boolean) || [];
 
-      const { data: allowedRolesData } = await supabase
-        .from('server_roles')
-        .select('name, role_permissions(can_upload_courses_own_server)')
-        .eq('server_id', serverData.id);
+      console.log('🔍 [PERMISSION CHECK] User server role keys:', userServerRoleKeys);
 
-      console.log('🔍 [PERMISSION CHECK] Allowed roles data:', allowedRolesData);
+      const intersection = userServerRoleKeys.filter((key: string) => allowedUploaderRoleKeys.includes(key));
 
-      const allowedUploaderRoles = allowedRolesData
-        ?.filter((role: any) => role.role_permissions?.can_upload_courses_own_server === true)
-        .map((role: any) => role.name) || [];
-
-      console.log('🔍 [PERMISSION CHECK] Allowed uploader roles:', allowedUploaderRoles);
+      console.log('🔍 [PERMISSION CHECK] Intersection:', intersection);
 
       console.log('🔍 [PERMISSION CHECK] Calling can_upload_courses_to_server RPC...');
       const { data, error } = await supabase.rpc('can_upload_courses_to_server', {
-        user_id: userId,
-        target_server_id: serverData.id,
+        check_user_id: userId,
+        check_server_id: serverData.id,
       });
 
       console.log('🔍 [PERMISSION CHECK] RPC result - data:', data, 'error:', error);
@@ -150,25 +131,15 @@ export default function LearningCenterPage() {
       setCanUpload(canUploadResult);
 
       let reason = '';
-      const isGlobalRole = globalPowerLevel <= 2;
 
-      if (isGlobalRole) {
-        reason = canUploadResult
-          ? `Global role override: ${globalRankDisplay} can upload to any server`
-          : `Global role detected but permission check failed`;
+      if (canUploadResult && intersection.length > 0) {
+        reason = `Role key "${intersection[0]}" has upload permission in ${serverData.name}`;
+      } else if (!canUploadResult && userServerRoleKeys.length > 0) {
+        reason = `Role key "${userServerRoleKeys[0]}" does not have upload permission in ${serverData.name}`;
+      } else if (!canUploadResult) {
+        reason = `Not a member of ${serverData.name} or no upload permission`;
       } else {
-        const userHasAllowedRole = serverRoles.some((r: string) => allowedUploaderRoles.includes(r));
-
-        if (canUploadResult && userHasAllowedRole) {
-          const userAllowedRole = serverRoles.find((r: string) => allowedUploaderRoles.includes(r));
-          reason = `Server role "${userAllowedRole}" has upload permission in ${serverData.name}`;
-        } else if (!canUploadResult && serverRoles.length > 0) {
-          reason = `Server role "${roleInThisServer}" does not have upload permission in ${serverData.name}`;
-        } else if (!canUploadResult) {
-          reason = `Not a member of ${serverData.name} or no upload permission`;
-        } else {
-          reason = `No upload permission in ${serverData.name}`;
-        }
+        reason = `No upload permission in ${serverData.name}`;
       }
 
       console.log('🔍 [PERMISSION CHECK] Reason:', reason);
@@ -179,10 +150,9 @@ export default function LearningCenterPage() {
         userId,
         serverIdReal: serverData.id,
         serverNameReal: serverData.name,
-        globalRole: globalRankDisplay,
-        globalPowerLevel,
-        serverRoles,
-        allowedUploaderRoles,
+        userServerRoleKeys,
+        allowedUploaderRoleKeys,
+        intersection,
         canUpload: canUploadResult,
         reason,
       });
@@ -545,26 +515,22 @@ export default function LearningCenterPage() {
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Server Name:</span> {debugInfo.serverNameReal}
             </div>
             <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Global Role:</span>{' '}
-              {debugInfo.globalRole} (Power Level: {debugInfo.globalPowerLevel})
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Server-Specific Roles:</span>{' '}
-              {debugInfo.serverRoles.length > 0 ? debugInfo.serverRoles.join(', ') : 'None'}
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Allowed Uploader Roles in This Server:</span>{' '}
-              <span style={{ color: '#10b981' }}>
-                {debugInfo.allowedUploaderRoles.length > 0 ? debugInfo.allowedUploaderRoles.join(', ') : 'None'}
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>User Server Role Keys:</span>{' '}
+              <span style={{ color: '#3b82f6' }}>
+                [{debugInfo.userServerRoleKeys.length > 0 ? debugInfo.userServerRoleKeys.map(k => `"${k}"`).join(', ') : 'none'}]
               </span>
             </div>
             <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Detected Highest Role:</span>{' '}
-              {debugInfo.globalPowerLevel <= 2
-                ? `${debugInfo.globalRole} (Global Override)`
-                : debugInfo.serverRoles.length > 0
-                  ? debugInfo.serverRoles[0]
-                  : debugInfo.globalRole}
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Allowed Uploader Role Keys:</span>{' '}
+              <span style={{ color: '#10b981' }}>
+                [{debugInfo.allowedUploaderRoleKeys.map(k => `"${k}"`).join(', ')}]
+              </span>
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Intersection:</span>{' '}
+              <span style={{ color: debugInfo.intersection.length > 0 ? '#10b981' : '#ef4444' }}>
+                [{debugInfo.intersection.length > 0 ? debugInfo.intersection.map(k => `"${k}"`).join(', ') : 'none'}]
+              </span>
             </div>
             <div>
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Can Upload Courses:</span>{' '}
