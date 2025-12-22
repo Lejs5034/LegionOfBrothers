@@ -57,6 +57,7 @@ export default function LearningCenterPage() {
     globalRole: '',
     globalPowerLevel: 999,
     serverRoles: [] as string[],
+    allowedUploaderRoles: [] as string[],
     canUpload: false,
     reason: '',
   });
@@ -121,6 +122,19 @@ export default function LearningCenterPage() {
       const serverRoles = serverRolesData?.map((m: any) => m.server_roles?.name).filter(Boolean) || [];
       const roleInThisServer = serverRoles[0] || 'No server role';
 
+      const { data: allowedRolesData } = await supabase
+        .from('server_roles')
+        .select('name, role_permissions(can_upload_courses_own_server)')
+        .eq('server_id', serverData.id);
+
+      console.log('🔍 [PERMISSION CHECK] Allowed roles data:', allowedRolesData);
+
+      const allowedUploaderRoles = allowedRolesData
+        ?.filter((role: any) => role.role_permissions?.can_upload_courses_own_server === true)
+        .map((role: any) => role.name) || [];
+
+      console.log('🔍 [PERMISSION CHECK] Allowed uploader roles:', allowedUploaderRoles);
+
       console.log('🔍 [PERMISSION CHECK] Calling can_upload_courses_to_server RPC...');
       const { data, error } = await supabase.rpc('can_upload_courses_to_server', {
         user_id: userId,
@@ -143,33 +157,17 @@ export default function LearningCenterPage() {
           ? `Global role override: ${globalRankDisplay} can upload to any server`
           : `Global role detected but permission check failed`;
       } else {
-        const professorRoles = [
-          'Business Mastery Professor',
-          'Crypto Trading Professor',
-          'Copywriting Professor',
-          'Fitness Professor',
-        ];
+        const userHasAllowedRole = serverRoles.some((r: string) => allowedUploaderRoles.includes(r));
 
-        const allowedServerRoles = [
-          'The Head',
-          'Admins',
-          'App Developers',
-          ...professorRoles,
-        ];
-
-        const isProfessor = serverRoles.some((r: string) => professorRoles.includes(r));
-        const isAllowedRole = serverRoles.some((r: string) => allowedServerRoles.includes(r));
-
-        if (canUploadResult && isAllowedRole) {
-          const userRole = serverRoles.find((r: string) => allowedServerRoles.includes(r));
-          reason = `Server role "${userRole}" has upload permissions in ${serverData.name}`;
-        } else if (isProfessor) {
-          const userProfessorRole = serverRoles.find((r: string) => professorRoles.includes(r));
-          reason = `${userProfessorRole} can only upload to their own server, not ${serverData.name}`;
+        if (canUploadResult && userHasAllowedRole) {
+          const userAllowedRole = serverRoles.find((r: string) => allowedUploaderRoles.includes(r));
+          reason = `Server role "${userAllowedRole}" has upload permission in ${serverData.name}`;
+        } else if (!canUploadResult && serverRoles.length > 0) {
+          reason = `Server role "${roleInThisServer}" does not have upload permission in ${serverData.name}`;
         } else if (!canUploadResult) {
-          reason = `Server role "${roleInThisServer}" does not have upload permissions (requires rank ≤ 2)`;
+          reason = `Not a member of ${serverData.name} or no upload permission`;
         } else {
-          reason = `Role "${roleInThisServer}" does not have upload permissions`;
+          reason = `No upload permission in ${serverData.name}`;
         }
       }
 
@@ -184,6 +182,7 @@ export default function LearningCenterPage() {
         globalRole: globalRankDisplay,
         globalPowerLevel,
         serverRoles,
+        allowedUploaderRoles,
         canUpload: canUploadResult,
         reason,
       });
@@ -552,6 +551,12 @@ export default function LearningCenterPage() {
             <div>
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Server-Specific Roles:</span>{' '}
               {debugInfo.serverRoles.length > 0 ? debugInfo.serverRoles.join(', ') : 'None'}
+            </div>
+            <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Allowed Uploader Roles in This Server:</span>{' '}
+              <span style={{ color: '#10b981' }}>
+                {debugInfo.allowedUploaderRoles.length > 0 ? debugInfo.allowedUploaderRoles.join(', ') : 'None'}
+              </span>
             </div>
             <div>
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Detected Highest Role:</span>{' '}
