@@ -54,6 +54,7 @@ export default function LearningCenterPage() {
     userId: '',
     serverIdReal: '',
     serverNameReal: '',
+    serverType: '',
     userServerRoleKeys: [] as string[],
     allowedUploaderRoleKeys: [] as string[],
     intersection: [] as string[],
@@ -86,7 +87,7 @@ export default function LearningCenterPage() {
     try {
       const { data: serverData } = await supabase
         .from('servers')
-        .select('id, name')
+        .select('id, name, slug')
         .eq('slug', serverId)
         .maybeSingle();
 
@@ -97,7 +98,13 @@ export default function LearningCenterPage() {
         return;
       }
 
-      const allowedUploaderRoleKeys = ['the_head', 'admins', 'app_developers'];
+      const { data: allowedRolesData } = await supabase.rpc('get_allowed_uploader_roles', {
+        check_server_id: serverData.id,
+      });
+
+      const allowedUploaderRoleKeys = allowedRolesData || [];
+
+      console.log('🔍 [PERMISSION CHECK] Allowed uploader role keys for this server:', allowedUploaderRoleKeys);
 
       const { data: serverRolesData } = await supabase
         .from('server_members')
@@ -108,7 +115,6 @@ export default function LearningCenterPage() {
       console.log('🔍 [PERMISSION CHECK] Server roles data:', serverRolesData);
 
       const userServerRoleKeys = serverRolesData?.map((m: any) => m.server_roles?.role_key).filter(Boolean) || [];
-      const userServerRoleNames = serverRolesData?.map((m: any) => m.server_roles?.name).filter(Boolean) || [];
 
       console.log('🔍 [PERMISSION CHECK] User server role keys:', userServerRoleKeys);
 
@@ -130,6 +136,8 @@ export default function LearningCenterPage() {
 
       setCanUpload(canUploadResult);
 
+      const serverType = serverData.slug === 'headquarters' ? 'Headquarters' : 'Learning Server';
+
       let reason = '';
 
       if (canUploadResult && intersection.length > 0) {
@@ -150,6 +158,7 @@ export default function LearningCenterPage() {
         userId,
         serverIdReal: serverData.id,
         serverNameReal: serverData.name,
+        serverType,
         userServerRoleKeys,
         allowedUploaderRoleKeys,
         intersection,
@@ -515,13 +524,17 @@ export default function LearningCenterPage() {
               <span className="font-semibold" style={{ color: 'var(--text)' }}>Server Name:</span> {debugInfo.serverNameReal}
             </div>
             <div>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Server Type:</span>{' '}
+              <span style={{ color: '#f59e0b' }}>{debugInfo.serverType}</span>
+            </div>
+            <div>
               <span className="font-semibold" style={{ color: 'var(--text)' }}>User Server Role Keys:</span>{' '}
               <span style={{ color: '#3b82f6' }}>
                 [{debugInfo.userServerRoleKeys.length > 0 ? debugInfo.userServerRoleKeys.map(k => `"${k}"`).join(', ') : 'none'}]
               </span>
             </div>
             <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Allowed Uploader Role Keys:</span>{' '}
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>Allowed Uploader Role Keys (for this server type):</span>{' '}
               <span style={{ color: '#10b981' }}>
                 [{debugInfo.allowedUploaderRoleKeys.map(k => `"${k}"`).join(', ')}]
               </span>
