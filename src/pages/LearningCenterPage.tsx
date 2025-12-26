@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Play, Bookmark, BookmarkCheck, Plus, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import DebugPanel from '../components/DebugPanel/DebugPanel';
 
 interface Course {
   id: string;
@@ -49,12 +50,14 @@ export default function LearningCenterPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedCourse, setSelectedCourse] = useState<CourseWithProgress | null>(null);
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [userGlobalRank, setUserGlobalRank] = useState<string>('');
+  const [isDebugAuthorized, setIsDebugAuthorized] = useState(false);
   const [debugInfo, setDebugInfo] = useState({
     userId: '',
     serverIdReal: '',
     serverNameReal: '',
     serverType: '',
+    userGlobalRank: '',
     userServerRoleKeys: [] as string[],
     allowedUploaderRoleKeys: [] as string[],
     intersection: [] as string[],
@@ -70,6 +73,18 @@ export default function LearningCenterPage() {
         return;
       }
       setUserId(user.id);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('global_rank')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile) {
+        setUserGlobalRank(profile.global_rank);
+        const authorized = ['the_head', 'app_developer'].includes(profile.global_rank);
+        setIsDebugAuthorized(authorized);
+      }
     };
     fetchUser();
   }, [navigate]);
@@ -152,25 +167,22 @@ export default function LearningCenterPage() {
 
       console.log('🔍 [PERMISSION CHECK] Reason:', reason);
 
-      setShowDebugPanel(true);
-
       setDebugInfo({
         userId,
         serverIdReal: serverData.id,
         serverNameReal: serverData.name,
         serverType,
+        userGlobalRank,
         userServerRoleKeys,
         allowedUploaderRoleKeys,
         intersection,
         canUpload: canUploadResult,
         reason,
       });
-
-      console.log('🔍 [PERMISSION CHECK] Debug panel visible: true (always shown)');
     } catch (error) {
       console.error('❌ [PERMISSION CHECK] Error checking upload permission:', error);
     }
-  }, [serverId, userId]);
+  }, [serverId, userId, userGlobalRank]);
 
   const loadServerName = useCallback(async () => {
     if (!serverId) return;
@@ -485,78 +497,6 @@ export default function LearningCenterPage() {
         </div>
       </header>
 
-      {showDebugPanel && (
-        <div
-          className="mx-4 md:mx-6 mt-4 p-4 rounded-xl text-xs font-mono"
-          style={{
-            background: 'linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%)',
-            border: '2px solid #fbbf24',
-            boxShadow: '0 4px 12px rgba(251, 191, 36, 0.2)',
-          }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="font-bold text-sm" style={{ color: '#fbbf24' }}>
-                DEBUG MODE (Temporary)
-              </h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                Permission check diagnostic panel - visible to all users
-              </p>
-            </div>
-            <span
-              className="px-2 py-1 rounded text-xs font-medium"
-              style={{
-                background: debugInfo.canUpload ? '#10b981' : '#ef4444',
-                color: '#ffffff',
-              }}
-            >
-              {debugInfo.canUpload ? 'CAN UPLOAD' : 'CANNOT UPLOAD'}
-            </span>
-          </div>
-          <div className="space-y-1" style={{ color: 'var(--text-muted)' }}>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>User ID:</span> {debugInfo.userId}
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Server ID:</span> {debugInfo.serverIdReal}
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Server Name:</span> {debugInfo.serverNameReal}
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Server Type:</span>{' '}
-              <span style={{ color: '#f59e0b' }}>{debugInfo.serverType}</span>
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>User Server Role Keys:</span>{' '}
-              <span style={{ color: '#3b82f6' }}>
-                [{debugInfo.userServerRoleKeys.length > 0 ? debugInfo.userServerRoleKeys.map(k => `"${k}"`).join(', ') : 'none'}]
-              </span>
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Allowed Uploader Role Keys (for this server type):</span>{' '}
-              <span style={{ color: '#10b981' }}>
-                [{debugInfo.allowedUploaderRoleKeys.map(k => `"${k}"`).join(', ')}]
-              </span>
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Intersection:</span>{' '}
-              <span style={{ color: debugInfo.intersection.length > 0 ? '#10b981' : '#ef4444' }}>
-                [{debugInfo.intersection.length > 0 ? debugInfo.intersection.map(k => `"${k}"`).join(', ') : 'none'}]
-              </span>
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Can Upload Courses:</span>{' '}
-              <span style={{ color: debugInfo.canUpload ? '#10b981' : '#ef4444' }}>
-                {debugInfo.canUpload ? 'true' : 'false'}
-              </span>
-            </div>
-            <div>
-              <span className="font-semibold" style={{ color: 'var(--text)' }}>Reason:</span> {debugInfo.reason}
-            </div>
-          </div>
-        </div>
-      )}
 
       <main className="flex-1 p-4 md:p-6 overflow-y-auto">
         {loading ? (
@@ -948,6 +888,10 @@ export default function LearningCenterPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {isDebugAuthorized && serverId && (
+        <DebugPanel debugInfo={debugInfo} serverId={serverId} />
       )}
     </div>
   );
