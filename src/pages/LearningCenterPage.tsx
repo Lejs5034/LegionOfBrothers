@@ -43,8 +43,6 @@ export default function LearningCenterPage() {
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
-    category: '',
-    cover_image_url: '',
   });
   const [uploading, setUploading] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -326,7 +324,7 @@ export default function LearningCenterPage() {
 
   const handleUploadCourse = async () => {
     if (!serverId || !userId) return;
-    if (!uploadForm.title || !uploadForm.description || !uploadForm.category) return;
+    if (!uploadForm.title) return;
     if (!videoFile) {
       alert('Please select a video file to upload.');
       return;
@@ -373,9 +371,9 @@ export default function LearningCenterPage() {
       const { error } = await supabase.from('courses').insert({
         server_id: serverData.id,
         title: uploadForm.title,
-        description: uploadForm.description,
-        category: uploadForm.category,
-        cover_image_url: uploadForm.cover_image_url || null,
+        description: uploadForm.description || '',
+        category: 'General',
+        cover_image_url: null,
         video_url: videoUrl,
         created_by: userId,
       });
@@ -386,7 +384,7 @@ export default function LearningCenterPage() {
       } else {
         setUploadProgress(100);
         setShowUploadModal(false);
-        setUploadForm({ title: '', description: '', category: '', cover_image_url: '' });
+        setUploadForm({ title: '', description: '' });
         setVideoFile(null);
         loadCourses();
       }
@@ -649,19 +647,46 @@ export default function LearningCenterPage() {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-                  Course Title
+                <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>
+                  Video File <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                  className="w-full px-4 py-3 rounded-lg transition-all"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '2px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                />
+                {videoFile && (
+                  <div className="mt-2 p-2 rounded-lg" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                    <p className="text-xs font-medium" style={{ color: 'var(--text)' }}>
+                      {videoFile.name}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      {(videoFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>
+                  Course Title <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <input
                   type="text"
                   value={uploadForm.title}
                   onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg"
+                  className="w-full px-4 py-3 rounded-lg transition-all"
                   style={{
                     background: 'var(--bg)',
-                    border: '1px solid var(--border)',
+                    border: '2px solid var(--border)',
                     color: 'var(--text)',
                   }}
                   placeholder="Enter course title"
@@ -669,78 +694,20 @@ export default function LearningCenterPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+                <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>
                   Description
                 </label>
                 <textarea
                   value={uploadForm.description}
                   onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg resize-none"
+                  className="w-full px-4 py-3 rounded-lg resize-none transition-all"
                   rows={4}
                   style={{
                     background: 'var(--bg)',
-                    border: '1px solid var(--border)',
+                    border: '2px solid var(--border)',
                     color: 'var(--text)',
                   }}
-                  placeholder="Enter course description"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={uploadForm.category}
-                  onChange={(e) => setUploadForm({ ...uploadForm, category: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg"
-                  style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text)',
-                  }}
-                  placeholder="e.g., Marketing, Technical, Fundamentals"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-                  Video File <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                  className="w-full px-3 py-2 rounded-lg"
-                  style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text)',
-                  }}
-                />
-                {videoFile && (
-                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                    Selected: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-                  Cover Image URL (optional)
-                </label>
-                <input
-                  type="text"
-                  value={uploadForm.cover_image_url}
-                  onChange={(e) => setUploadForm({ ...uploadForm, cover_image_url: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg"
-                  style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text)',
-                  }}
-                  placeholder="https://example.com/image.jpg"
+                  placeholder="Enter course description (optional)"
                 />
               </div>
 
@@ -762,14 +729,14 @@ export default function LearningCenterPage() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowUploadModal(false)}
-                  className="flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                  className="flex-1 px-4 py-3 rounded-lg font-semibold text-sm transition-colors"
                   style={{
                     background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text-muted)',
+                    border: '2px solid var(--border)',
+                    color: 'var(--text)',
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--text-muted)'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
@@ -778,18 +745,18 @@ export default function LearningCenterPage() {
                 </button>
                 <button
                   onClick={handleUploadCourse}
-                  disabled={uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category || !videoFile}
-                  className="flex-1 px-4 py-2 rounded-lg font-medium text-sm text-white transition-all"
+                  disabled={uploading || !uploadForm.title || !videoFile}
+                  className="flex-1 px-4 py-3 rounded-lg font-semibold text-sm text-white transition-all shadow-md"
                   style={{
-                    background: uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category || !videoFile
+                    background: uploading || !uploadForm.title || !videoFile
                       ? 'var(--border)'
                       : 'var(--accent-grad)',
-                    cursor: uploading || !uploadForm.title || !uploadForm.description || !uploadForm.category || !videoFile
+                    cursor: uploading || !uploadForm.title || !videoFile
                       ? 'not-allowed'
                       : 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    if (!uploading && uploadForm.title && uploadForm.description && uploadForm.category && videoFile) {
+                    if (!uploading && uploadForm.title && videoFile) {
                       e.currentTarget.style.filter = 'brightness(1.1)';
                     }
                   }}
