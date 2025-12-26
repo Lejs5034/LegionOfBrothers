@@ -52,6 +52,7 @@ export interface Course {
   server_id: string;
   title: string;
   description?: string;
+  category: string;
   level: CourseLevel;
   thumbnail_url?: string;
   created_by: string;

@@ -43,6 +43,7 @@ export default function LearningCenterPage() {
   const [uploadForm, setUploadForm] = useState({
     title: '',
     description: '',
+    category: '',
   });
   const [uploading, setUploading] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -378,7 +379,7 @@ export default function LearningCenterPage() {
         server_id: serverData.id,
         title: uploadForm.title,
         description: uploadForm.description || '',
-        category: 'General',
+        category: uploadForm.category || 'General',
         cover_image_url: null,
         video_url: videoUrl,
         created_by: userId,
@@ -402,7 +403,7 @@ export default function LearningCenterPage() {
       } else {
         setUploadProgress(100);
         setShowUploadModal(false);
-        setUploadForm({ title: '', description: '' });
+        setUploadForm({ title: '', description: '', category: '' });
         setVideoFile(null);
         loadCourses();
       }
@@ -601,7 +602,7 @@ export default function LearningCenterPage() {
                         color: '#ffffff',
                       }}
                     >
-                      {course.category}
+                      {course.category || 'General'}
                     </span>
                   </div>
 
@@ -717,6 +718,24 @@ export default function LearningCenterPage() {
 
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>
+                  Category
+                </label>
+                <input
+                  type="text"
+                  value={uploadForm.category}
+                  onChange={(e) => setUploadForm({ ...uploadForm, category: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg transition-all"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '2px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                  placeholder="Enter category (defaults to General)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>
                   Description
                 </label>
                 <textarea
@@ -818,7 +837,7 @@ export default function LearningCenterPage() {
                     color: '#ffffff',
                   }}
                 >
-                  {selectedCourse.category}
+                  {selectedCourse.category || 'General'}
                 </span>
               </div>
               <button
