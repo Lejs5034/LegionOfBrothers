@@ -355,8 +355,14 @@ export default function LearningCenterPage() {
         });
 
       if (uploadError) {
-        console.error('Error uploading video:', uploadError);
-        alert('Failed to upload video file.');
+        console.error('❌ STORAGE UPLOAD ERROR - Full error object:', uploadError);
+        console.error('Error details:', {
+          message: uploadError.message,
+          statusCode: uploadError.statusCode,
+          error: uploadError.error,
+          name: uploadError.name,
+        });
+        alert(`Storage Upload Failed\n\nError: ${uploadError.message}\nCode: ${uploadError.statusCode || uploadError.name || 'Unknown'}`);
         return;
       }
 
@@ -379,8 +385,20 @@ export default function LearningCenterPage() {
       });
 
       if (error) {
-        console.error('Error creating course:', error);
-        alert('Failed to create course. Please check your permissions.');
+        console.error('❌ DATABASE INSERT ERROR - Full error object:', error);
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
+
+        let errorDisplay = `Database Insert Failed\n\nError: ${error.message}`;
+        if (error.code) errorDisplay += `\nCode: ${error.code}`;
+        if (error.details) errorDisplay += `\nDetails: ${error.details}`;
+        if (error.hint) errorDisplay += `\nHint: ${error.hint}`;
+
+        alert(errorDisplay);
       } else {
         setUploadProgress(100);
         setShowUploadModal(false);
@@ -389,8 +407,12 @@ export default function LearningCenterPage() {
         loadCourses();
       }
     } catch (error) {
-      console.error('Error uploading course:', error);
-      alert('An error occurred while uploading the course.');
+      console.error('❌ UNEXPECTED ERROR - Full error object:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error stringified:', JSON.stringify(error, null, 2));
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Unexpected Error\n\nError: ${errorMessage}\n\nCheck console for full details.`);
     } finally {
       setUploading(false);
       setUploadProgress(0);
