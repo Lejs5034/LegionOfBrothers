@@ -54,7 +54,8 @@ export interface Course {
   description?: string;
   category: string;
   level: CourseLevel;
-  thumbnail_url?: string;
+  cover_image_url?: string;
+  video_url?: string;
   created_by: string;
   created_at: string;
 }
