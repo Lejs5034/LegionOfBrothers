@@ -38,14 +38,14 @@ const RANK_LABELS: Record<string, { label: string; emoji: string; color: string 
   'the_head': { label: 'The Head', emoji: '👑', color: '#ef4444' },
   'app_developer': { label: 'App Developers', emoji: '💻', color: '#8b5cf6' },
   'admin': { label: 'Admins', emoji: '🛡️', color: '#f59e0b' },
-  'business_mastery_professor': { label: 'Business Mastery Professor', emoji: '💼', color: '#3b82f6' },
-  'crypto_trading_professor': { label: 'Crypto Trading Professor', emoji: '📈', color: '#10b981' },
-  'copywriting_professor': { label: 'Copywriting Professor', emoji: '✍️', color: '#ec4899' },
-  'fitness_professor': { label: 'Fitness Professor', emoji: '💪', color: '#f59e0b' },
-  'business_mentor': { label: 'Business Mentor', emoji: '🎓', color: '#6366f1' },
-  'crypto_trading_mentor': { label: 'Crypto Trading Mentor', emoji: '📊', color: '#14b8a6' },
-  'copywriting_mentor': { label: 'Copywriting Mentor', emoji: '📝', color: '#f472b6' },
-  'coach': { label: 'Coach', emoji: '🏆', color: '#fb923c' },
+  'business_mastery_professor': { label: 'Business Mastery Professor', emoji: '🎓', color: '#3b82f6' },
+  'crypto_trading_professor': { label: 'Crypto Trading Professor', emoji: '🎓', color: '#10b981' },
+  'copywriting_professor': { label: 'Copywriting Professor', emoji: '🎓', color: '#ec4899' },
+  'fitness_professor': { label: 'Fitness Professor', emoji: '🎓', color: '#f59e0b' },
+  'business_mentor': { label: 'Business Mentor', emoji: '🧠', color: '#6366f1' },
+  'crypto_trading_mentor': { label: 'Crypto Trading Mentor', emoji: '🧠', color: '#14b8a6' },
+  'copywriting_mentor': { label: 'Copywriting Mentor', emoji: '🧠', color: '#f472b6' },
+  'coach': { label: 'Coach', emoji: '🧠', color: '#fb923c' },
   'user': { label: 'Member', emoji: '👤', color: '#64748b' },
 };
 
@@ -56,20 +56,20 @@ const SERVER_ROLE_CONFIG: Record<string, RoleConfig[]> = {
     { key: 'app_developer', label: 'App Developers', emoji: '💻', color: '#8b5cf6', order: 3 },
   ],
   'Business Mastery': [
-    { key: 'business_mastery_professor', label: 'Business Mastery Professor', emoji: '💼', color: '#3b82f6', order: 1 },
-    { key: 'business_mentor', label: 'Business Mentor', emoji: '🎓', color: '#6366f1', order: 2 },
+    { key: 'business_mastery_professor', label: 'Business Mastery Professor', emoji: '🎓', color: '#3b82f6', order: 1 },
+    { key: 'business_mentor', label: 'Business Mentor', emoji: '🧠', color: '#6366f1', order: 2 },
   ],
   'Crypto Trading': [
-    { key: 'crypto_trading_professor', label: 'Crypto Trading Professor', emoji: '📈', color: '#10b981', order: 1 },
-    { key: 'crypto_trading_mentor', label: 'Crypto Trading Mentor', emoji: '📊', color: '#14b8a6', order: 2 },
+    { key: 'crypto_trading_professor', label: 'Crypto Trading Professor', emoji: '🎓', color: '#10b981', order: 1 },
+    { key: 'crypto_trading_mentor', label: 'Crypto Trading Mentor', emoji: '🧠', color: '#14b8a6', order: 2 },
   ],
   'Copywriting': [
-    { key: 'copywriting_professor', label: 'Copywriting Professor', emoji: '✍️', color: '#ec4899', order: 1 },
-    { key: 'copywriting_mentor', label: 'Copywriting Mentor', emoji: '📝', color: '#f472b6', order: 2 },
+    { key: 'copywriting_professor', label: 'Copywriting Professor', emoji: '🎓', color: '#ec4899', order: 1 },
+    { key: 'copywriting_mentor', label: 'Copywriting Mentor', emoji: '🧠', color: '#f472b6', order: 2 },
   ],
   'Fitness': [
-    { key: 'fitness_professor', label: 'Fitness Professor', emoji: '💪', color: '#f59e0b', order: 1 },
-    { key: 'coach', label: 'Coaches', emoji: '🏆', color: '#fb923c', order: 2 },
+    { key: 'fitness_professor', label: 'Fitness Professor', emoji: '🎓', color: '#f59e0b', order: 1 },
+    { key: 'coach', label: 'Coaches', emoji: '🧠', color: '#fb923c', order: 2 },
   ],
 };
 
@@ -80,20 +80,20 @@ const SERVER_RANK_GROUPS: Record<string, RankGroup[]> = {
     { key: 'admin', label: 'Admins', emoji: '🛡️', color: '#f59e0b', order: 3 },
   ],
   'Business Mastery': [
-    { key: 'business_mastery_professor', label: 'Business Mastery Professor', emoji: '💼', color: '#3b82f6', order: 1 },
-    { key: 'business_mentor', label: 'Business Mentor', emoji: '🎓', color: '#6366f1', order: 2 },
+    { key: 'business_mastery_professor', label: 'Business Mastery Professor', emoji: '🎓', color: '#3b82f6', order: 1 },
+    { key: 'business_mentor', label: 'Business Mentor', emoji: '🧠', color: '#6366f1', order: 2 },
   ],
   'Crypto Trading': [
-    { key: 'crypto_trading_professor', label: 'Crypto Trading Professor', emoji: '📈', color: '#10b981', order: 1 },
-    { key: 'crypto_trading_mentor', label: 'Crypto Trading Mentor', emoji: '📊', color: '#14b8a6', order: 2 },
+    { key: 'crypto_trading_professor', label: 'Crypto Trading Professor', emoji: '🎓', color: '#10b981', order: 1 },
+    { key: 'crypto_trading_mentor', label: 'Crypto Trading Mentor', emoji: '🧠', color: '#14b8a6', order: 2 },
   ],
   'Copywriting': [
-    { key: 'copywriting_professor', label: 'Copywriting Professor', emoji: '✍️', color: '#ec4899', order: 1 },
-    { key: 'copywriting_mentor', label: 'Copywriting Mentor', emoji: '📝', color: '#f472b6', order: 2 },
+    { key: 'copywriting_professor', label: 'Copywriting Professor', emoji: '🎓', color: '#ec4899', order: 1 },
+    { key: 'copywriting_mentor', label: 'Copywriting Mentor', emoji: '🧠', color: '#f472b6', order: 2 },
   ],
   'Fitness': [
-    { key: 'fitness_professor', label: 'Fitness Professor', emoji: '💪', color: '#f59e0b', order: 1 },
-    { key: 'coach', label: 'Coaches', emoji: '🏆', color: '#fb923c', order: 2 },
+    { key: 'fitness_professor', label: 'Fitness Professor', emoji: '🎓', color: '#f59e0b', order: 1 },
+    { key: 'coach', label: 'Coaches', emoji: '🧠', color: '#fb923c', order: 2 },
   ],
 };
 
