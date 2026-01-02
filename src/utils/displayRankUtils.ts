@@ -18,6 +18,14 @@ export interface DisplayRank {
   color: string;
 }
 
+export interface RankGroup {
+  key: string;
+  label: string;
+  emoji: string;
+  color: string;
+  order: number;
+}
+
 const RANK_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
   'the_head': { label: 'The Head', emoji: '👑', color: '#ef4444' },
   'app_developer': { label: 'App Developers', emoji: '💻', color: '#8b5cf6' },
@@ -33,12 +41,38 @@ const RANK_LABELS: Record<string, { label: string; emoji: string; color: string 
   'user': { label: 'Member', emoji: '👤', color: '#64748b' },
 };
 
-const SERVER_PROFESSOR_MAP: Record<string, string> = {
-  'Business Mastery': 'business_mastery_professor',
-  'Crypto Trading': 'crypto_trading_professor',
-  'Copywriting': 'copywriting_professor',
-  'Fitness': 'fitness_professor',
+const SERVER_RANK_GROUPS: Record<string, RankGroup[]> = {
+  'Headquarters': [
+    { key: 'the_head', label: 'The Head', emoji: '👑', color: '#ef4444', order: 1 },
+    { key: 'app_developer', label: 'App Developers', emoji: '💻', color: '#8b5cf6', order: 2 },
+    { key: 'admin', label: 'Admins', emoji: '🛡️', color: '#f59e0b', order: 3 },
+  ],
+  'Business Mastery': [
+    { key: 'business_mastery_professor', label: 'Business Mastery Professor', emoji: '💼', color: '#3b82f6', order: 1 },
+    { key: 'business_mentor', label: 'Business Mentor', emoji: '🎓', color: '#6366f1', order: 2 },
+  ],
+  'Crypto Trading': [
+    { key: 'crypto_trading_professor', label: 'Crypto Trading Professor', emoji: '📈', color: '#10b981', order: 1 },
+    { key: 'crypto_trading_mentor', label: 'Crypto Trading Mentor', emoji: '📊', color: '#14b8a6', order: 2 },
+  ],
+  'Copywriting': [
+    { key: 'copywriting_professor', label: 'Copywriting Professor', emoji: '✍️', color: '#ec4899', order: 1 },
+    { key: 'copywriting_mentor', label: 'Copywriting Mentor', emoji: '📝', color: '#f472b6', order: 2 },
+  ],
+  'Fitness': [
+    { key: 'fitness_professor', label: 'Fitness Professor', emoji: '💪', color: '#f59e0b', order: 1 },
+    { key: 'coach', label: 'Coaches', emoji: '🏆', color: '#fb923c', order: 2 },
+  ],
 };
+
+export function getServerRankGroups(serverName: string): RankGroup[] {
+  return SERVER_RANK_GROUPS[serverName] || [];
+}
+
+export function isRankedUser(globalRank: string | undefined): boolean {
+  if (!globalRank || globalRank === 'user') return false;
+  return Object.keys(RANK_LABELS).includes(globalRank) && globalRank !== 'user';
+}
 
 export function getUserDisplayRankForServer(user: User, server: Server): DisplayRank {
   const globalRank = user.global_rank || 'user';
@@ -51,8 +85,9 @@ export function getUserDisplayRankForServer(user: User, server: Server): Display
     return RANK_LABELS[globalRank];
   }
 
-  const professorRankForServer = SERVER_PROFESSOR_MAP[server.name];
-  if (professorRankForServer && globalRank === professorRankForServer) {
+  const serverRankGroups = getServerRankGroups(server.name);
+  const matchingRank = serverRankGroups.find(rg => rg.key === globalRank);
+  if (matchingRank) {
     return RANK_LABELS[globalRank];
   }
 
