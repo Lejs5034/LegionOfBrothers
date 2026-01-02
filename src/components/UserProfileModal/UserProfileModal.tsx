@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap, Ban } from 'lucide-react';
+import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap, Ban, UserCog } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 
@@ -26,6 +26,13 @@ interface UserProfileModalProps {
 
 type TabType = 'information' | 'journey' | 'statistics';
 
+interface RankOption {
+  rank: string;
+  power_level: number;
+  display_name: string;
+  emoji: string;
+}
+
 export default function UserProfileModal({ userId, serverId, onClose }: UserProfileModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('information');
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
@@ -35,11 +42,20 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
   const [banning, setBanning] = useState(false);
   const [showBanConfirm, setShowBanConfirm] = useState(false);
   const [banReason, setBanReason] = useState('');
+  const [showRankChange, setShowRankChange] = useState(false);
+  const [changingRank, setChangingRank] = useState(false);
+  const [availableRanks, setAvailableRanks] = useState<RankOption[]>([]);
 
   useEffect(() => {
     loadCurrentUser();
     loadProfileData();
   }, [userId, serverId]);
+
+  useEffect(() => {
+    if (profileData && currentUserPowerLevel < 999) {
+      loadAvailableRanks();
+    }
+  }, [profileData, currentUserPowerLevel]);
 
   const loadCurrentUser = async () => {
     try {
@@ -176,7 +192,30 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     };
   };
 
+  const loadAvailableRanks = async () => {
+    try {
+      const { data: ranks } = await supabase
+        .from('rank_hierarchy')
+        .select('rank, power_level, display_name, emoji')
+        .gt('power_level', currentUserPowerLevel)
+        .order('power_level', { ascending: true });
+
+      if (ranks) {
+        setAvailableRanks(ranks);
+      }
+    } catch (error) {
+      console.error('Error loading available ranks:', error);
+    }
+  };
+
   const canBanUser = () => {
+    if (!profileData || !currentUserId) return false;
+    if (currentUserId === userId) return false;
+    if (profileData.is_banned) return false;
+    return currentUserPowerLevel < profileData.power_level;
+  };
+
+  const canChangeRank = () => {
     if (!profileData || !currentUserId) return false;
     if (currentUserId === userId) return false;
     if (profileData.is_banned) return false;
@@ -206,6 +245,33 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
       alert(error.message || 'Failed to ban user');
     } finally {
       setBanning(false);
+    }
+  };
+
+  const handleChangeRank = async (newRank: string) => {
+    if (!profileData || changingRank) return;
+
+    try {
+      setChangingRank(true);
+
+      const { data, error } = await supabase.rpc('change_user_rank', {
+        target_user_id: userId,
+        new_rank: newRank,
+      });
+
+      if (error) throw error;
+
+      if (data && !data.success) {
+        throw new Error(data.error || 'Failed to change rank');
+      }
+
+      setShowRankChange(false);
+      await loadProfileData();
+    } catch (error: any) {
+      console.error('Error changing rank:', error);
+      alert(error.message || 'Failed to change rank');
+    } finally {
+      setChangingRank(false);
     }
   };
 
@@ -349,6 +415,28 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                             >
                               🚫 Banned
                             </span>
+                          )}
+                          {canChangeRank() && (
+                            <button
+                              onClick={() => setShowRankChange(true)}
+                              className="px-3 py-1 rounded-full text-sm font-semibold transition-all flex items-center gap-1"
+                              style={{
+                                background: 'rgba(139, 92, 246, 0.1)',
+                                color: '#8b5cf6',
+                                border: '1px solid rgba(139, 92, 246, 0.3)',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
+                                e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+                                e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+                              }}
+                            >
+                              <UserCog size={14} />
+                              Change Rank
+                            </button>
                           )}
                           {canBanUser() && (
                             <button
@@ -652,6 +740,108 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                   )}
                 </button>
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {showRankChange && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="absolute inset-0 flex items-center justify-center p-6"
+            style={{ background: 'rgba(0, 0, 0, 0.8)' }}
+            onClick={() => !changingRank && setShowRankChange(false)}
+          >
+            <div
+              className="relative max-w-md w-full p-6 rounded-xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(31, 41, 55, 0.98) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className="p-3 rounded-full"
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                  }}
+                >
+                  <UserCog size={24} style={{ color: '#8b5cf6' }} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: 'white' }}>
+                    Change Rank
+                  </h3>
+                  <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                    Update {profileData?.username}'s rank
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm mb-4" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  Select a new rank for <strong style={{ color: 'white' }}>{profileData?.username}</strong>
+                </p>
+
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {availableRanks.length === 0 ? (
+                    <p className="text-sm text-center py-4" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                      No ranks available to assign
+                    </p>
+                  ) : (
+                    availableRanks.map((rank) => (
+                      <button
+                        key={rank.rank}
+                        onClick={() => handleChangeRank(rank.rank)}
+                        disabled={changingRank}
+                        className="w-full px-4 py-3 rounded-lg text-left transition-all flex items-center gap-3"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!changingRank) {
+                            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                        }}
+                      >
+                        <span className="text-2xl">{rank.emoji}</span>
+                        <div className="flex-1">
+                          <div className="font-semibold" style={{ color: 'white' }}>
+                            {rank.display_name}
+                          </div>
+                          <div className="text-xs" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                            Power Level: {rank.power_level}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowRankChange(false)}
+                disabled={changingRank}
+                className="w-full px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                }}
+                onMouseEnter={(e) => !changingRank && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)')}
+              >
+                Cancel
+              </button>
             </div>
           </motion.div>
         )}
