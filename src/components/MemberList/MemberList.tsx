@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { getServerRankGroups, isRankedUser, RankGroup } from '../../utils/displayRankUtils';
+import { getServerRoleConfig, RoleConfig } from '../../utils/displayRankUtils';
 
 interface MemberProfile {
   id: string;
@@ -9,8 +9,8 @@ interface MemberProfile {
   global_rank: string;
 }
 
-interface RankedMemberGroup {
-  rankGroup: RankGroup;
+interface RoleSection {
+  roleConfig: RoleConfig;
   members: MemberProfile[];
 }
 
@@ -20,14 +20,14 @@ interface MemberListProps {
 }
 
 export default function MemberList({ serverId, isMobile = false }: MemberListProps) {
-  const [rankedGroups, setRankedGroups] = useState<RankedMemberGroup[]>([]);
+  const [roleSections, setRoleSections] = useState<RoleSection[]>([]);
   const [serverName, setServerName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
   const loadMembers = async () => {
     setLoading(true);
-    setRankedGroups([]);
+    setRoleSections([]);
     setError('');
 
     try {
@@ -52,6 +52,8 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
       }
 
       setServerName(server.name);
+
+      const serverRoleConfig = getServerRoleConfig(server.name);
 
       const { data: members, error: membersError } = await supabase
         .from('server_members')
@@ -86,24 +88,18 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
         })
         .filter((m): m is MemberProfile => m !== null);
 
-      const rankedMembers = allMembers.filter(m => isRankedUser(m.global_rank));
+      const sections: RoleSection[] = serverRoleConfig.map(roleConfig => {
+        const roleMembers = allMembers
+          .filter(m => m.global_rank === roleConfig.key)
+          .sort((a, b) => a.username.localeCompare(b.username));
 
-      const serverRankGroups = getServerRankGroups(server.name);
+        return {
+          roleConfig,
+          members: roleMembers,
+        };
+      });
 
-      const groupedRankedMembers: RankedMemberGroup[] = serverRankGroups
-        .map(rankGroup => {
-          const groupMembers = rankedMembers
-            .filter(m => m.global_rank === rankGroup.key)
-            .sort((a, b) => a.username.localeCompare(b.username));
-
-          return {
-            rankGroup,
-            members: groupMembers,
-          };
-        })
-        .filter(group => group.members.length > 0);
-
-      setRankedGroups(groupedRankedMembers);
+      setRoleSections(sections);
     } catch (error) {
       console.error('Error loading members:', error);
     } finally {
@@ -163,7 +159,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
     );
   }
 
-  if (rankedGroups.length === 0) {
+  if (roleSections.length === 0 && !loading) {
     return (
       <div
         className={`flex flex-col items-center justify-center p-4 ${isMobile ? 'w-full' : 'w-60'}`}
@@ -172,7 +168,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
           borderLeft: isMobile ? 'none' : '1px solid var(--border)'
         }}
       >
-        <div className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>No ranked members yet</div>
+        <div className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>No roles configured</div>
       </div>
     );
   }
@@ -186,47 +182,53 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
       }}
     >
       <div className="flex-1 overflow-y-auto p-4">
-        {rankedGroups.map(({ rankGroup, members }, index) => (
-          <div key={rankGroup.key} className="mb-6">
+        {roleSections.map(({ roleConfig, members }, index) => (
+          <div key={roleConfig.key} className="mb-6">
             <div className="flex items-center gap-2 mb-2 px-2">
-              <span className="text-lg">{rankGroup.emoji}</span>
+              <span className="text-lg">{roleConfig.emoji}</span>
               <h3
                 className="text-xs font-semibold uppercase tracking-wider"
-                style={{ color: rankGroup.color }}
+                style={{ color: roleConfig.color }}
               >
-                {rankGroup.label} — {members.length}
+                {roleConfig.label} — {members.length}
               </h3>
             </div>
             <div className="space-y-1">
-              {members.map(member => (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors"
-                  style={{
-                    background: 'transparent'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
-                    style={{
-                      backgroundColor: rankGroup.color + '20',
-                      color: rankGroup.color,
-                    }}
-                  >
-                    {member.username.charAt(0).toUpperCase()}
-                  </div>
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: rankGroup.color }}
-                  >
-                    {member.username}
-                  </span>
+              {members.length === 0 ? (
+                <div className="px-2 py-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  No members
                 </div>
-              ))}
+              ) : (
+                members.map(member => (
+                  <div
+                    key={member.id}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors"
+                    style={{
+                      background: 'transparent'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
+                      style={{
+                        backgroundColor: roleConfig.color + '20',
+                        color: roleConfig.color,
+                      }}
+                    >
+                      {member.username.charAt(0).toUpperCase()}
+                    </div>
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: roleConfig.color }}
+                    >
+                      {member.username}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
-            {index < rankedGroups.length - 1 && (
+            {index < roleSections.length - 1 && (
               <div className="mt-6 h-px" style={{ background: 'rgba(255, 255, 255, 0.04)' }} />
             )}
           </div>
