@@ -10,6 +10,7 @@ import MentionDropdown from '../components/MentionDropdown/MentionDropdown';
 import UserProfileModal from '../components/UserProfileModal/UserProfileModal';
 import PinnedMessagesBar from '../components/PinnedMessagesBar/PinnedMessagesBar';
 import { findMentionTrigger, insertMention, extractMentions, getCaretPosition } from '../utils/mentionUtils';
+import { getRankOrder } from '../utils/rankUtils';
 
 interface Attachment {
   id: string;
@@ -127,7 +128,7 @@ export default function ChatPage() {
   const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string; role_rank?: number; role_color?: string }>>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
-  const [currentUserPowerLevel, setCurrentUserPowerLevel] = useState<number>(999);
+  const [currentUserRank, setCurrentUserRank] = useState<string>('user');
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
@@ -164,14 +165,14 @@ export default function ChatPage() {
           setUsername(profile.username);
         }
 
-        const { data: profileView } = await supabase
-          .from('profiles_with_ban_status')
-          .select('power_level')
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('global_rank')
           .eq('id', data.session.user.id)
           .maybeSingle();
 
-        if (profileView) {
-          setCurrentUserPowerLevel(profileView.power_level);
+        if (profileData) {
+          setCurrentUserRank(profileData.global_rank);
         }
 
         setReady(true);
@@ -1390,7 +1391,7 @@ export default function ChatPage() {
                       <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                         Channels
                       </div>
-                      {currentUserPowerLevel <= 6 && (
+                      {getRankOrder(currentUserRank) >= 40 && (
                         <button
                           onClick={() => {
                             setShowCreateChannel(true);
@@ -1611,7 +1612,7 @@ export default function ChatPage() {
                 <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                   Channels
                 </div>
-                {currentUserPowerLevel <= 6 && (
+                {getRankOrder(currentUserRank) >= 40 && (
                   <button
                     onClick={() => setShowCreateChannel(true)}
                     className="p-1 rounded transition-colors"
@@ -1651,7 +1652,7 @@ export default function ChatPage() {
                       <Hash size={18} />
                       <span className="capitalize">{channel.name}</span>
                     </div>
-                    {currentUserPowerLevel <= 6 && hoveredChannelId === channel.id && deletingChannelId !== channel.id && (
+                    {getRankOrder(currentUserRank) >= 40 && hoveredChannelId === channel.id && deletingChannelId !== channel.id && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -2125,7 +2126,7 @@ export default function ChatPage() {
             <PinnedMessagesBar
               channelId={selectedChannel.id}
               onJumpToMessage={handleJumpToMessage}
-              canUnpin={currentUserPowerLevel <= 6}
+              canUnpin={getRankOrder(currentUserRank) >= 40}
               onUnpin={(messageId) => handleTogglePin(messageId, true)}
             />
           )}
@@ -2175,7 +2176,7 @@ export default function ChatPage() {
                         setSelectedUserId(clickedUserId);
                         setShowUserProfile(true);
                       }}
-                      canPin={currentUserPowerLevel <= 6}
+                      canPin={getRankOrder(currentUserRank) >= 40}
                       isPinned={pinnedMessageIds.has(message.id)}
                       onTogglePin={handleTogglePin}
                     />

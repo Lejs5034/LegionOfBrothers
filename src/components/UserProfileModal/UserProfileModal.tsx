@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap, Ban, UserCog } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
+import { getRankOrder } from '../../utils/rankUtils';
 
 interface UserProfileData {
   id: string;
@@ -10,7 +11,6 @@ interface UserProfileData {
   global_rank: string;
   rank_display_name: string;
   rank_emoji: string;
-  power_level: number;
   login_streak: number;
   created_at: string;
   is_banned: boolean;
@@ -28,7 +28,6 @@ type TabType = 'information' | 'journey' | 'statistics';
 
 interface RankOption {
   rank: string;
-  power_level: number;
   display_name: string;
   emoji: string;
 }
@@ -38,7 +37,7 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>('');
-  const [currentUserPowerLevel, setCurrentUserPowerLevel] = useState<number>(999);
+  const [currentUserRank, setCurrentUserRank] = useState<string>('user');
   const [banning, setBanning] = useState(false);
   const [showBanConfirm, setShowBanConfirm] = useState(false);
   const [banReason, setBanReason] = useState('');
@@ -52,10 +51,10 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
   }, [userId, serverId]);
 
   useEffect(() => {
-    if (profileData && currentUserPowerLevel < 999) {
+    if (profileData && currentUserRank) {
       loadAvailableRanks();
     }
-  }, [profileData, currentUserPowerLevel]);
+  }, [profileData, currentUserRank]);
 
   const loadCurrentUser = async () => {
     try {
@@ -64,14 +63,14 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
 
       setCurrentUserId(user.id);
 
-      const { data: profileView } = await supabase
-        .from('profiles_with_ban_status')
-        .select('power_level')
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('global_rank')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profileView) {
-        setCurrentUserPowerLevel(profileView.power_level);
+      if (profile) {
+        setCurrentUserRank(profile.global_rank);
       }
     } catch (error) {
       console.error('Error loading current user:', error);
@@ -123,7 +122,6 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
         global_rank: profileView.global_rank,
         rank_display_name: profileView.rank_display_name,
         rank_emoji: profileView.rank_emoji,
-        power_level: profileView.power_level,
         login_streak: profileData?.login_streak || 0,
         created_at: profileView.created_at,
         is_banned: profileView.is_banned,
@@ -196,12 +194,14 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     try {
       const { data: ranks } = await supabase
         .from('rank_hierarchy')
-        .select('rank, power_level, display_name, emoji')
-        .gt('power_level', currentUserPowerLevel)
-        .order('power_level', { ascending: true });
+        .select('rank, display_name, emoji');
 
       if (ranks) {
-        setAvailableRanks(ranks);
+        const currentUserRankOrder = getRankOrder(currentUserRank);
+        const filteredRanks = ranks
+          .filter(r => getRankOrder(r.rank) < currentUserRankOrder)
+          .sort((a, b) => getRankOrder(b.rank) - getRankOrder(a.rank));
+        setAvailableRanks(filteredRanks);
       }
     } catch (error) {
       console.error('Error loading available ranks:', error);
@@ -212,14 +212,14 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     if (!profileData || !currentUserId) return false;
     if (currentUserId === userId) return false;
     if (profileData.is_banned) return false;
-    return currentUserPowerLevel < profileData.power_level;
+    return getRankOrder(currentUserRank) > getRankOrder(profileData.global_rank);
   };
 
   const canChangeRank = () => {
     if (!profileData || !currentUserId) return false;
     if (currentUserId === userId) return false;
     if (profileData.is_banned) return false;
-    return currentUserPowerLevel < profileData.power_level;
+    return getRankOrder(currentUserRank) > getRankOrder(profileData.global_rank);
   };
 
   const handleBanUser = async () => {
@@ -817,9 +817,6 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                         <div className="flex-1">
                           <div className="font-semibold" style={{ color: 'white' }}>
                             {rank.display_name}
-                          </div>
-                          <div className="text-xs" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
-                            Power Level: {rank.power_level}
                           </div>
                         </div>
                       </button>
