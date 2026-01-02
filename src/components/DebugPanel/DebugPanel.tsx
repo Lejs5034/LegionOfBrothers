@@ -23,7 +23,7 @@ export default function DebugPanel({ debugInfo, serverId }: DebugPanelProps) {
   const storageKey = `debug-panel-${serverId}`;
   const [isOpen, setIsOpen] = useState(() => {
     const stored = sessionStorage.getItem(storageKey);
-    return stored === 'true';
+    return stored === 'true' ? true : false;
   });
 
   useEffect(() => {
