@@ -9,6 +9,7 @@ import MessageItem from '../components/MessageItem/MessageItem';
 import MentionDropdown from '../components/MentionDropdown/MentionDropdown';
 import UserProfileModal from '../components/UserProfileModal/UserProfileModal';
 import PinnedMessagesBar from '../components/PinnedMessagesBar/PinnedMessagesBar';
+import RoleSelector from '../components/RoleSelector/RoleSelector';
 import { findMentionTrigger, insertMention, extractMentions, getCaretPosition } from '../utils/mentionUtils';
 import { getRankOrder } from '../utils/rankUtils';
 
@@ -41,6 +42,7 @@ interface Channel {
   id: string;
   name: string;
   server_id: string;
+  allowed_writer_roles?: string[] | null;
 }
 
 interface Friend {
@@ -137,6 +139,7 @@ export default function ChatPage() {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [creatingChannel, setCreatingChannel] = useState(false);
+  const [newChannelWriterRoles, setNewChannelWriterRoles] = useState<string[]>([]);
   const [hoveredChannelId, setHoveredChannelId] = useState<string | null>(null);
   const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -150,10 +153,35 @@ export default function ChatPage() {
   const [showAvatarUpload, setShowAvatarUpload] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const [canWriteInChannel, setCanWriteInChannel] = useState(true);
+  const [showEditChannelPermissions, setShowEditChannelPermissions] = useState(false);
+  const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
+  const [editingChannelWriterRoles, setEditingChannelWriterRoles] = useState<string[]>([]);
+  const [updatingChannelPermissions, setUpdatingChannelPermissions] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('showMemberList', JSON.stringify(showMemberList));
   }, [showMemberList]);
+
+  useEffect(() => {
+    const checkWritePermission = async () => {
+      if (viewMode === 'friends' || !selectedChannel || !userId) {
+        setCanWriteInChannel(true);
+        return;
+      }
+
+      const allowedRoles = selectedChannel.allowed_writer_roles;
+
+      if (!allowedRoles || allowedRoles.length === 0) {
+        setCanWriteInChannel(true);
+        return;
+      }
+
+      setCanWriteInChannel(allowedRoles.includes(currentUserRank));
+    };
+
+    checkWritePermission();
+  }, [selectedChannel, currentUserRank, userId, viewMode]);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -1269,12 +1297,14 @@ export default function ChatPage() {
           name: newChannelName.trim().toLowerCase(),
           type: 'text',
           sort_order: nextSortOrder,
+          allowed_writer_roles: newChannelWriterRoles.length === 0 ? null : newChannelWriterRoles,
         });
 
       if (error) {
         alert(`Failed to create channel: ${error.message}`);
       } else {
         setNewChannelName('');
+        setNewChannelWriterRoles([]);
         setShowCreateChannel(false);
         await loadChannels();
       }
@@ -1283,6 +1313,41 @@ export default function ChatPage() {
       alert('An unexpected error occurred');
     } finally {
       setCreatingChannel(false);
+    }
+  };
+
+  const handleEditChannelPermissions = (channel: Channel) => {
+    setEditingChannelId(channel.id);
+    setEditingChannelWriterRoles(channel.allowed_writer_roles || []);
+    setShowEditChannelPermissions(true);
+  };
+
+  const handleUpdateChannelPermissions = async () => {
+    if (!editingChannelId || updatingChannelPermissions) return;
+
+    setUpdatingChannelPermissions(true);
+
+    try {
+      const { error } = await supabase
+        .from('channels')
+        .update({
+          allowed_writer_roles: editingChannelWriterRoles.length === 0 ? null : editingChannelWriterRoles,
+        })
+        .eq('id', editingChannelId);
+
+      if (error) {
+        alert(`Failed to update channel permissions: ${error.message}`);
+      } else {
+        setShowEditChannelPermissions(false);
+        setEditingChannelId(null);
+        setEditingChannelWriterRoles([]);
+        await loadChannels();
+      }
+    } catch (error: any) {
+      console.error('Error updating channel permissions:', error);
+      alert('An unexpected error occurred');
+    } finally {
+      setUpdatingChannelPermissions(false);
     }
   };
 
@@ -1746,19 +1811,34 @@ export default function ChatPage() {
                       <span className="capitalize">{channel.name}</span>
                     </div>
                     {getRankOrder(currentUserRank) >= 40 && hoveredChannelId === channel.id && deletingChannelId !== channel.id && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteChannel(channel.id, channel.name);
-                        }}
-                        className="p-1 rounded transition-colors flex-shrink-0"
-                        style={{ color: 'var(--text-muted)' }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                        title="Delete channel"
-                      >
-                        <Trash size={14} />
-                      </button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditChannelPermissions(channel);
+                          }}
+                          className="p-1 rounded transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                          title="Edit permissions"
+                        >
+                          <Lock size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteChannel(channel.id, channel.name);
+                          }}
+                          className="p-1 rounded transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                          title="Delete channel"
+                        >
+                          <Trash size={14} />
+                        </button>
+                      </div>
                     )}
                     {deletingChannelId === channel.id && (
                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -2241,10 +2321,6 @@ export default function ChatPage() {
                   type="text"
                   value={newChannelName}
                   onChange={(e) => setNewChannelName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateChannel();
-                    if (e.key === 'Escape') setShowCreateChannel(false);
-                  }}
                   placeholder="e.g., general, announcements"
                   className="input-field w-full"
                   autoFocus
@@ -2254,6 +2330,12 @@ export default function ChatPage() {
                   Channel names are lowercase and cannot contain spaces
                 </p>
               </div>
+
+              <RoleSelector
+                selectedRoles={newChannelWriterRoles}
+                onChange={setNewChannelWriterRoles}
+                disabled={creatingChannel}
+              />
 
               <div className="flex gap-2">
                 <button
@@ -2269,6 +2351,65 @@ export default function ChatPage() {
                 <button
                   onClick={() => setShowCreateChannel(false)}
                   disabled={creatingChannel}
+                  className="px-4 py-2 rounded-lg font-medium transition-colors"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditChannelPermissions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.7)' }} onClick={() => setShowEditChannelPermissions(false)}>
+          <div className="w-full max-w-md mx-4 rounded-lg shadow-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid var(--border)' }}>
+              <h2 className="text-xl font-bold" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+                Edit Channel Permissions
+              </h2>
+              <button
+                onClick={() => setShowEditChannelPermissions(false)}
+                className="p-2 rounded-lg transition-colors duration-200"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="mb-2">
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Configure who can write messages in this channel. Users can still read messages regardless of these settings.
+                </p>
+              </div>
+
+              <RoleSelector
+                selectedRoles={editingChannelWriterRoles}
+                onChange={setEditingChannelWriterRoles}
+                disabled={updatingChannelPermissions}
+                label="Who can write in this channel?"
+              />
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleUpdateChannelPermissions}
+                  disabled={updatingChannelPermissions}
+                  className="btn-primary flex-1"
+                  style={{
+                    opacity: updatingChannelPermissions ? 0.5 : 1,
+                  }}
+                >
+                  {updatingChannelPermissions ? 'Updating...' : 'Update Permissions'}
+                </button>
+                <button
+                  onClick={() => setShowEditChannelPermissions(false)}
+                  disabled={updatingChannelPermissions}
                   className="px-4 py-2 rounded-lg font-medium transition-colors"
                   style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
@@ -2571,6 +2712,17 @@ export default function ChatPage() {
         </div>
 
         <div className="p-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+          {viewMode === 'servers' && !canWriteInChannel && (
+            <div
+              className="mb-2 px-3 py-2 rounded-lg flex items-center gap-2"
+              style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+            >
+              <Lock size={16} style={{ color: '#ef4444' }} />
+              <span className="text-sm font-medium" style={{ color: '#ef4444' }}>
+                You don't have permission to write in this channel
+              </span>
+            </div>
+          )}
           {replyingTo && (
             <div
               className="mb-2 px-3 py-2 rounded-lg flex items-center justify-between"
@@ -2642,7 +2794,7 @@ export default function ChatPage() {
               style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
               onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
               onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-              disabled={uploadingFile || loading}
+              disabled={uploadingFile || loading || (viewMode === 'servers' && !canWriteInChannel)}
               title="Attach files"
             >
               <Paperclip size={20} />
@@ -2652,13 +2804,15 @@ export default function ChatPage() {
                 ref={messageInputRef}
                 className="input-field w-full"
                 placeholder={
-                  viewMode === 'servers'
+                  viewMode === 'servers' && !canWriteInChannel
+                    ? 'You cannot write in this channel'
+                    : viewMode === 'servers'
                     ? `Message #${selectedChannel?.name || 'channel'}`
                     : `Message ${selectedFriend?.username || 'friend'}`
                 }
                 value={messageInput}
                 onChange={handleMessageInputChange}
-                disabled={(viewMode === 'servers' && !selectedChannel) || (viewMode === 'friends' && !selectedFriend) || loading || uploadingFile}
+                disabled={(viewMode === 'servers' && (!selectedChannel || !canWriteInChannel)) || (viewMode === 'friends' && !selectedFriend) || loading || uploadingFile}
               />
               {showMentionDropdown && (
                 <MentionDropdown
@@ -2673,7 +2827,7 @@ export default function ChatPage() {
               type="submit"
               disabled={
                 (!messageInput.trim() && selectedFiles.length === 0) ||
-                (viewMode === 'servers' && !selectedChannel) ||
+                (viewMode === 'servers' && (!selectedChannel || !canWriteInChannel)) ||
                 (viewMode === 'friends' && !selectedFriend) ||
                 loading ||
                 uploadingFile
@@ -2682,7 +2836,7 @@ export default function ChatPage() {
               style={{
                 opacity:
                   (!messageInput.trim() && selectedFiles.length === 0) ||
-                  (viewMode === 'servers' && !selectedChannel) ||
+                  (viewMode === 'servers' && (!selectedChannel || !canWriteInChannel)) ||
                   (viewMode === 'friends' && !selectedFriend) ||
                   loading ||
                   uploadingFile
