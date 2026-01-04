@@ -136,7 +136,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
       <div
         className={`flex items-center justify-center ${isMobile ? 'w-full' : 'w-60'}`}
         style={{
-          background: isMobile ? 'transparent' : 'var(--surface)',
+          background: isMobile ? 'transparent' : 'var(--bg)',
           borderLeft: isMobile ? 'none' : '1px solid var(--border)'
         }}
       >
@@ -150,7 +150,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
       <div
         className={`flex flex-col items-center justify-center p-4 ${isMobile ? 'w-full' : 'w-60'}`}
         style={{
-          background: isMobile ? 'transparent' : 'var(--surface)',
+          background: isMobile ? 'transparent' : 'var(--bg)',
           borderLeft: isMobile ? 'none' : '1px solid var(--border)'
         }}
       >
@@ -164,7 +164,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
       <div
         className={`flex flex-col items-center justify-center p-4 ${isMobile ? 'w-full' : 'w-60'}`}
         style={{
-          background: isMobile ? 'transparent' : 'var(--surface)',
+          background: isMobile ? 'transparent' : 'var(--bg)',
           borderLeft: isMobile ? 'none' : '1px solid var(--border)'
         }}
       >
@@ -177,7 +177,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
     <div
       className={`flex flex-col overflow-hidden ${isMobile ? 'w-full' : 'w-60'}`}
       style={{
-        background: isMobile ? 'transparent' : 'var(--surface)',
+        background: 'var(--bg)',
         borderLeft: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.06)'
       }}
     >
