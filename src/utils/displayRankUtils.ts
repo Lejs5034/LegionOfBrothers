@@ -35,8 +35,8 @@ export interface RankGroup {
 }
 
 const RANK_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
-  'the_head': { label: 'The Head', emoji: '👑', color: '#ef4444' },
-  'app_developer': { label: 'App Developers', emoji: '💻', color: '#8b5cf6' },
+  'the_head': { label: 'The Head', emoji: '🏆', color: '#fbbf24' },
+  'app_developer': { label: 'App Developers', emoji: '💻', color: '#ef4444' },
   'admin': { label: 'Admins', emoji: '🛡️', color: '#f59e0b' },
   'business_mastery_professor': { label: 'Business Mastery Professor', emoji: '🎓', color: '#3b82f6' },
   'crypto_trading_professor': { label: 'Crypto Trading Professor', emoji: '🎓', color: '#10b981' },
@@ -51,9 +51,9 @@ const RANK_LABELS: Record<string, { label: string; emoji: string; color: string 
 
 const SERVER_ROLE_CONFIG: Record<string, RoleConfig[]> = {
   'Headquarters': [
-    { key: 'the_head', label: 'The Head', emoji: '👑', color: '#ef4444', order: 1 },
+    { key: 'the_head', label: 'The Head', emoji: '🏆', color: '#fbbf24', order: 1 },
     { key: 'admin', label: 'Admins', emoji: '🛡️', color: '#f59e0b', order: 2 },
-    { key: 'app_developer', label: 'App Developers', emoji: '💻', color: '#8b5cf6', order: 3 },
+    { key: 'app_developer', label: 'App Developers', emoji: '💻', color: '#ef4444', order: 3 },
   ],
   'Business Mastery': [
     { key: 'business_mastery_professor', label: 'Business Mastery Professor', emoji: '🎓', color: '#3b82f6', order: 1 },
@@ -75,8 +75,8 @@ const SERVER_ROLE_CONFIG: Record<string, RoleConfig[]> = {
 
 const SERVER_RANK_GROUPS: Record<string, RankGroup[]> = {
   'Headquarters': [
-    { key: 'the_head', label: 'The Head', emoji: '👑', color: '#ef4444', order: 1 },
-    { key: 'app_developer', label: 'App Developers', emoji: '💻', color: '#8b5cf6', order: 2 },
+    { key: 'the_head', label: 'The Head', emoji: '🏆', color: '#fbbf24', order: 1 },
+    { key: 'app_developer', label: 'App Developers', emoji: '💻', color: '#ef4444', order: 2 },
     { key: 'admin', label: 'Admins', emoji: '🛡️', color: '#f59e0b', order: 3 },
   ],
   'Business Mastery': [

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getServerRoleConfig, RoleConfig } from '../../utils/displayRankUtils';
+import RoleManagementModal from '../RoleManagementModal/RoleManagementModal';
 
 interface MemberProfile {
   id: string;
@@ -24,6 +25,10 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
   const [serverName, setServerName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserRank, setCurrentUserRank] = useState<string>('');
+  const [selectedMember, setSelectedMember] = useState<MemberProfile | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadMembers = async () => {
     setLoading(true);
@@ -108,6 +113,24 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
   };
 
   useEffect(() => {
+    const initializeUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('global_rank')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile) {
+          setCurrentUserRank(profile.global_rank || 'user');
+        }
+      }
+    };
+
+    initializeUser();
     loadMembers();
 
     const channelName = `server_members_${serverId}_${Date.now()}`;
@@ -124,12 +147,40 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
           loadMembers();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+        },
+        () => {
+          loadMembers();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [serverId]);
+
+  const handleMemberClick = (member: MemberProfile) => {
+    if (currentUserId === member.id) {
+      return;
+    }
+    setSelectedMember(member);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedMember(null);
+  };
+
+  const handlePromotionSuccess = () => {
+    loadMembers();
+  };
 
   if (loading) {
     return (
@@ -204,6 +255,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
                   className="flex items-center gap-2 px-2 py-1.5 cursor-pointer transition-colors"
                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  onClick={() => handleMemberClick(member)}
                 >
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold overflow-hidden"
@@ -237,6 +289,17 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
           </div>
         ))}
       </div>
+
+      {selectedMember && (
+        <RoleManagementModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          targetUser={selectedMember}
+          currentUserRank={currentUserRank}
+          serverSlug={serverId}
+          onSuccess={handlePromotionSuccess}
+        />
+      )}
     </div>
   );
 }
