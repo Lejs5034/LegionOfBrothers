@@ -12,6 +12,7 @@ import PinnedMessagesBar from '../components/PinnedMessagesBar/PinnedMessagesBar
 import RoleSelector from '../components/RoleSelector/RoleSelector';
 import { findMentionTrigger, insertMention, extractMentions, getCaretPosition } from '../utils/mentionUtils';
 import { getRankOrder } from '../utils/rankUtils';
+import { getRankDisplayInfo } from '../utils/displayRankUtils';
 
 interface Attachment {
   id: string;
@@ -49,6 +50,7 @@ interface Friend {
   id: string;
   username: string;
   avatar_url?: string;
+  global_rank?: string;
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount?: number;
@@ -65,10 +67,12 @@ interface DirectMessage {
   sender?: {
     username: string;
     avatar_url?: string;
+    global_rank?: string;
   };
   receiver?: {
     username: string;
     avatar_url?: string;
+    global_rank?: string;
   };
   attachments?: Attachment[];
 }
@@ -342,8 +346,8 @@ export default function ChatPage() {
         id,
         sender_id,
         receiver_id,
-        sender:sender_id(id, username, avatar_url),
-        receiver:receiver_id(id, username, avatar_url)
+        sender:sender_id(id, username, avatar_url, global_rank),
+        receiver:receiver_id(id, username, avatar_url, global_rank)
       `)
       .eq('status', 'accepted')
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
@@ -372,6 +376,7 @@ export default function ChatPage() {
             id: friend.id,
             username: friend.username,
             avatar_url: friend.avatar_url,
+            global_rank: friend.global_rank,
             lastMessage: lastMsg?.content,
             lastMessageTime: lastMsg?.created_at,
             unreadCount: count || 0,
@@ -546,8 +551,8 @@ export default function ChatPage() {
       .from('direct_messages')
       .select(`
         *,
-        sender:sender_id(username, avatar_url),
-        receiver:receiver_id(username, avatar_url)
+        sender:sender_id(username, avatar_url, global_rank),
+        receiver:receiver_id(username, avatar_url, global_rank)
       `)
       .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedFriend.id}),and(sender_id.eq.${selectedFriend.id},receiver_id.eq.${userId})`)
       .order('created_at', { ascending: true });
@@ -1619,10 +1624,44 @@ export default function ChatPage() {
                             setShowMobileMenu(false);
                           }}
                         >
-                          <div className="size-8 rounded-full flex items-center justify-center text-white font-bold text-xs mr-2" style={{ background: 'var(--accent-grad)' }}>
-                            {friend.username[0].toUpperCase()}
+                          <div
+                            className="size-8 rounded-full flex items-center justify-center text-white font-bold text-xs mr-2 overflow-hidden flex-shrink-0"
+                            style={{
+                              background: friend.global_rank
+                                ? `${getRankDisplayInfo(friend.global_rank).color}40`
+                                : 'var(--accent-grad)',
+                              color: friend.global_rank
+                                ? getRankDisplayInfo(friend.global_rank).color
+                                : 'white',
+                              border: friend.global_rank
+                                ? `2px solid ${getRankDisplayInfo(friend.global_rank).color}20`
+                                : 'none'
+                            }}
+                          >
+                            {friend.avatar_url ? (
+                              <img
+                                src={friend.avatar_url}
+                                alt={friend.username}
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              friend.username[0].toUpperCase()
+                            )}
                           </div>
-                          <span>{friend.username}</span>
+                          <span
+                            style={{
+                              color: friend.global_rank
+                                ? getRankDisplayInfo(friend.global_rank).color
+                                : 'inherit'
+                            }}
+                          >
+                            {friend.username}
+                          </span>
+                          {friend.global_rank && (
+                            <span className="text-sm ml-1">
+                              {getRankDisplayInfo(friend.global_rank).emoji}
+                            </span>
+                          )}
                         </div>
                       ))
                     )}
@@ -1878,12 +1917,47 @@ export default function ChatPage() {
                     className={`channel-item flex items-center justify-between ${selectedFriend?.id === friend.id ? 'active' : ''}`}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="size-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'var(--accent-grad)' }}>
-                        {friend.username[0].toUpperCase()}
+                      <div
+                        className="size-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden"
+                        style={{
+                          background: friend.global_rank
+                            ? `${getRankDisplayInfo(friend.global_rank).color}40`
+                            : 'var(--accent-grad)',
+                          color: friend.global_rank
+                            ? getRankDisplayInfo(friend.global_rank).color
+                            : 'white',
+                          border: friend.global_rank
+                            ? `2px solid ${getRankDisplayInfo(friend.global_rank).color}20`
+                            : 'none'
+                        }}
+                      >
+                        {friend.avatar_url ? (
+                          <img
+                            src={friend.avatar_url}
+                            alt={friend.username}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          friend.username[0].toUpperCase()
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
-                          {friend.username}
+                        <div className="flex items-center gap-1">
+                          <div
+                            className="text-sm font-medium truncate"
+                            style={{
+                              color: friend.global_rank
+                                ? getRankDisplayInfo(friend.global_rank).color
+                                : 'var(--text)'
+                            }}
+                          >
+                            {friend.username}
+                          </div>
+                          {friend.global_rank && (
+                            <span className="text-sm flex-shrink-0">
+                              {getRankDisplayInfo(friend.global_rank).emoji}
+                            </span>
+                          )}
                         </div>
                         {friend.lastMessage && (
                           <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
@@ -2437,11 +2511,44 @@ export default function ChatPage() {
               </>
             ) : (
               <>
-                <div className="size-10 rounded-full flex items-center justify-center text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
-                  {selectedFriend?.username[0].toUpperCase() || '?'}
+                <div
+                  className="size-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0"
+                  style={{
+                    background: selectedFriend?.global_rank
+                      ? `${getRankDisplayInfo(selectedFriend.global_rank).color}40`
+                      : 'var(--accent-grad)',
+                    color: selectedFriend?.global_rank
+                      ? getRankDisplayInfo(selectedFriend.global_rank).color
+                      : 'white',
+                    border: selectedFriend?.global_rank
+                      ? `2px solid ${getRankDisplayInfo(selectedFriend.global_rank).color}20`
+                      : 'none'
+                  }}
+                >
+                  {selectedFriend?.avatar_url ? (
+                    <img
+                      src={selectedFriend.avatar_url}
+                      alt={selectedFriend.username}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    selectedFriend?.username[0].toUpperCase() || '?'
+                  )}
                 </div>
-                <h2 className="font-semibold text-lg" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+                <h2
+                  className="font-semibold text-lg flex items-center gap-2"
+                  style={{
+                    color: selectedFriend?.global_rank
+                      ? getRankDisplayInfo(selectedFriend.global_rank).color
+                      : 'var(--text)'
+                  }}
+                >
                   {selectedFriend?.username || 'Select a friend'}
+                  {selectedFriend?.global_rank && (
+                    <span className="text-xl">
+                      {getRankDisplayInfo(selectedFriend.global_rank).emoji}
+                    </span>
+                  )}
                 </h2>
               </>
             )}
@@ -2575,6 +2682,13 @@ export default function ChatPage() {
               directMessages.map((dm) => {
                 const isOwnMessage = dm.sender_id === userId;
                 const isEditing = editingMessageId === dm.id;
+                const messageUser = isOwnMessage
+                  ? { username, avatar_url: avatarUrl, global_rank: currentUserRank }
+                  : {
+                      username: dm.sender?.username || dm.receiver?.username || selectedFriend?.username,
+                      avatar_url: dm.sender?.avatar_url || dm.receiver?.avatar_url || selectedFriend?.avatar_url,
+                      global_rank: dm.sender?.global_rank || dm.receiver?.global_rank || selectedFriend?.global_rank
+                    };
                 return (
                   <div
                     key={dm.id}
@@ -2582,14 +2696,47 @@ export default function ChatPage() {
                     onMouseEnter={() => setHoveredMessageId(dm.id)}
                     onMouseLeave={() => setHoveredMessageId(null)}
                   >
-                    <div className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold" style={{ background: 'var(--accent-grad)' }}>
-                      {isOwnMessage ? username[0]?.toUpperCase() : selectedFriend?.username[0].toUpperCase()}
+                    <div
+                      className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold overflow-hidden"
+                      style={{
+                        background: messageUser.global_rank
+                          ? `${getRankDisplayInfo(messageUser.global_rank).color}40`
+                          : 'var(--accent-grad)',
+                        color: messageUser.global_rank
+                          ? getRankDisplayInfo(messageUser.global_rank).color
+                          : 'white',
+                        border: messageUser.global_rank
+                          ? `2px solid ${getRankDisplayInfo(messageUser.global_rank).color}20`
+                          : 'none'
+                      }}
+                    >
+                      {messageUser.avatar_url ? (
+                        <img
+                          src={messageUser.avatar_url}
+                          alt={messageUser.username}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        messageUser.username?.[0]?.toUpperCase() || '?'
+                      )}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-semibold" style={{ color: 'var(--text)' }}>
-                          {isOwnMessage ? username : selectedFriend?.username}
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span
+                          className="font-semibold"
+                          style={{
+                            color: messageUser.global_rank
+                              ? getRankDisplayInfo(messageUser.global_rank).color
+                              : 'var(--text)'
+                          }}
+                        >
+                          {messageUser.username}
                         </span>
+                        {messageUser.global_rank && (
+                          <span className="text-base" title={getRankDisplayInfo(messageUser.global_rank).label}>
+                            {getRankDisplayInfo(messageUser.global_rank).emoji}
+                          </span>
+                        )}
                         <span className="timestamp">
                           {new Date(dm.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
