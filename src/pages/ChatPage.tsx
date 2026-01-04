@@ -31,6 +31,7 @@ interface Message {
   parent_message_id?: string | null;
   profiles?: {
     username: string;
+    global_rank?: string;
   };
   attachments?: Attachment[];
 }
@@ -364,7 +365,7 @@ export default function ChatPage() {
       .from('messages')
       .select(`
         *,
-        profiles:user_id (username)
+        profiles:user_id (username, global_rank)
       `)
       .eq('channel_id', selectedChannel.id)
       .order('created_at', { ascending: true });
@@ -463,7 +464,7 @@ export default function ChatPage() {
 
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('username')
+            .select('username, global_rank')
             .eq('id', payload.new.user_id)
             .maybeSingle();
 

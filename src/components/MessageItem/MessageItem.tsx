@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Edit2, Trash2, Check, X, Reply, FileText, Download, CornerDownRight, AtSign, Pin } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getRankDisplayInfo } from '../../utils/displayRankUtils';
 
 interface Attachment {
   id: string;
@@ -20,6 +21,7 @@ interface MessageItemProps {
     parent_message_id?: string | null;
     profiles?: {
       username: string;
+      global_rank?: string;
     };
     attachments?: Attachment[];
   };
@@ -129,7 +131,17 @@ export default function MessageItem({
       <button
         onClick={() => onUserClick?.(message.user_id)}
         className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold transition-transform hover:scale-110 cursor-pointer"
-        style={{ background: 'var(--accent-grad)' }}
+        style={{
+          background: message.profiles?.global_rank
+            ? `${getRankDisplayInfo(message.profiles.global_rank).color}40`
+            : 'var(--accent-grad)',
+          color: message.profiles?.global_rank
+            ? getRankDisplayInfo(message.profiles.global_rank).color
+            : 'white',
+          border: message.profiles?.global_rank
+            ? `2px solid ${getRankDisplayInfo(message.profiles.global_rank).color}20`
+            : 'none'
+        }}
         title="View profile"
       >
         {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
@@ -156,11 +168,20 @@ export default function MessageItem({
           <button
             onClick={() => onUserClick?.(message.user_id)}
             className="font-semibold hover:underline transition-all cursor-pointer"
-            style={{ color: 'var(--text)' }}
+            style={{
+              color: message.profiles?.global_rank
+                ? getRankDisplayInfo(message.profiles.global_rank).color
+                : 'var(--text)'
+            }}
             title="View profile"
           >
             {message.profiles?.username || 'Unknown'}
           </button>
+          {message.profiles?.global_rank && (
+            <span className="text-base" title={getRankDisplayInfo(message.profiles.global_rank).label}>
+              {getRankDisplayInfo(message.profiles.global_rank).emoji}
+            </span>
+          )}
           {isMentioned && (
             <span
               className="text-xs px-1.5 py-0.5 rounded"
