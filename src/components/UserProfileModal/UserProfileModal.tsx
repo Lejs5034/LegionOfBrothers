@@ -3,6 +3,7 @@ import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap, Ban, UserCo
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { getRankOrder } from '../../utils/rankUtils';
+import { getRankDisplayInfo } from '../../utils/displayRankUtils';
 
 interface UserProfileData {
   id: string;
@@ -151,42 +152,12 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const getRankColor = (rankName: string): string => {
-    const lowerRank = rankName.toLowerCase();
-
-    if (lowerRank.includes('the head')) {
-      return '#fbbf24';
-    }
-
-    if (lowerRank.includes('app developer')) {
-      return '#ef4444';
-    }
-
-    if (lowerRank.includes('professor')) {
-      return '#fbbf24';
-    }
-
-    if (lowerRank.includes('mentor')) {
-      return '#8b5cf6';
-    }
-
-    if (lowerRank.includes('admin')) {
-      return '#f59e0b';
-    }
-
-    if (lowerRank.includes('coach')) {
-      return '#10b981';
-    }
-
-    return '#06b6d4';
-  };
-
-  const getRankStyles = (rankName: string) => {
-    const color = getRankColor(rankName);
+  const getRankStyles = (globalRank: string) => {
+    const rankInfo = getRankDisplayInfo(globalRank);
     return {
-      background: `${color}20`,
-      color: color,
-      border: `1px solid ${color}50`,
+      background: `${rankInfo.color}20`,
+      color: rankInfo.color,
+      border: `1px solid ${rankInfo.color}50`,
     };
   };
 
@@ -387,9 +358,9 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                         <div className="flex flex-wrap gap-2 mb-3">
                           <span
                             className="px-3 py-1 rounded-full text-sm font-semibold"
-                            style={getRankStyles(profileData.rank_display_name)}
+                            style={getRankStyles(profileData.global_rank)}
                           >
-                            {profileData.rank_emoji} {profileData.rank_display_name}
+                            {getRankDisplayInfo(profileData.global_rank).emoji} {getRankDisplayInfo(profileData.global_rank).label}
                           </span>
                           {profileData.server_role && (
                             <span

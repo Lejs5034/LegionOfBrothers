@@ -125,7 +125,7 @@ export default function ChatPage() {
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearchTerm, setMentionSearchTerm] = useState('');
   const [mentionStartPos, setMentionStartPos] = useState(0);
-  const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string; role_rank?: number; role_color?: string }>>([]);
+  const [serverMembers, setServerMembers] = useState<Array<{ id: string; username: string; avatar_url?: string; global_rank: string }>>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [currentUserRank, setCurrentUserRank] = useState<string>('user');
@@ -259,11 +259,11 @@ export default function ChatPage() {
         .from('server_members')
         .select(`
           user_id,
-          role_id,
           profiles:user_id (
             id,
             username,
-            avatar_url
+            avatar_url,
+            global_rank
           )
         `)
         .eq('server_id', serverData.id);
@@ -275,29 +275,15 @@ export default function ChatPage() {
 
       console.log('[Mentions] Raw members data:', members);
 
-      const { data: roles, error: rolesError } = await supabase
-        .from('server_roles')
-        .select('id, rank, color')
-        .eq('server_id', serverData.id);
-
-      if (rolesError) {
-        console.error('[Mentions] Error loading roles:', rolesError);
-      }
-
-      const rolesMap = new Map(
-        (roles || []).map(role => [role.id, { rank: role.rank, color: role.color }])
-      );
-
       const validMembers = (members || [])
         .filter(m => m.profiles && (m.profiles as any).id && (m.profiles as any).username)
         .map(m => {
-          const roleInfo = m.role_id ? rolesMap.get(m.role_id) : null;
+          const profile = m.profiles as any;
           return {
-            id: (m.profiles as any).id,
-            username: (m.profiles as any).username,
-            avatar_url: (m.profiles as any).avatar_url,
-            role_rank: roleInfo?.rank,
-            role_color: roleInfo?.color,
+            id: profile.id,
+            username: profile.username,
+            avatar_url: profile.avatar_url,
+            global_rank: profile.global_rank || 'user',
           };
         });
 

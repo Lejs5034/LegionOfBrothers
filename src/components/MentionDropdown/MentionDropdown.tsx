@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { getRankDisplayInfo } from '../../utils/displayRankUtils';
+import { getRankOrder } from '../../utils/rankUtils';
 
 interface Member {
   id: string;
   username: string;
   avatar_url?: string;
-  role_rank?: number;
-  role_color?: string;
+  global_rank: string;
 }
 
 interface MentionDropdownProps {
@@ -42,11 +43,11 @@ function sortMembers(members: Member[], searchTerm: string): Member[] {
         return scoreB - scoreA;
       }
 
-      const rankA = a.role_rank ?? 999;
-      const rankB = b.role_rank ?? 999;
+      const rankOrderA = getRankOrder(a.global_rank);
+      const rankOrderB = getRankOrder(b.global_rank);
 
-      if (rankA !== rankB) {
-        return rankA - rankB;
+      if (rankOrderA !== rankOrderB) {
+        return rankOrderB - rankOrderA;
       }
 
       return a.username.localeCompare(b.username);
@@ -192,11 +193,9 @@ export default function MentionDropdown({ members, searchTerm, onSelect, onClose
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                 style={{
-                  background: member.role_color
-                    ? `${member.role_color}40`
-                    : 'var(--accent-grad)',
-                  color: member.role_color || 'white',
-                  border: member.role_color ? `2px solid ${member.role_color}20` : 'none',
+                  background: `${getRankDisplayInfo(member.global_rank).color}40`,
+                  color: getRankDisplayInfo(member.global_rank).color,
+                  border: `2px solid ${getRankDisplayInfo(member.global_rank).color}20`,
                 }}
               >
                 {member.username[0]?.toUpperCase() || '?'}
@@ -205,7 +204,7 @@ export default function MentionDropdown({ members, searchTerm, onSelect, onClose
             <span
               className="text-sm font-medium truncate"
               style={{
-                color: member.role_color || 'var(--text)',
+                color: getRankDisplayInfo(member.global_rank).color,
               }}
             >
               {member.username}
