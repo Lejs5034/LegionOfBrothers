@@ -2685,9 +2685,9 @@ export default function ChatPage() {
                 const messageUser = isOwnMessage
                   ? { username, avatar_url: avatarUrl, global_rank: currentUserRank }
                   : {
-                      username: dm.sender?.username || dm.receiver?.username || selectedFriend?.username,
-                      avatar_url: dm.sender?.avatar_url || dm.receiver?.avatar_url || selectedFriend?.avatar_url,
-                      global_rank: dm.sender?.global_rank || dm.receiver?.global_rank || selectedFriend?.global_rank
+                      username: dm.sender?.username || 'Unknown',
+                      avatar_url: dm.sender?.avatar_url,
+                      global_rank: dm.sender?.global_rank
                     };
                 return (
                   <div
