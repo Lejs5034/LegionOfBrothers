@@ -212,8 +212,8 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold overflow-hidden"
                       style={{
-                        backgroundColor: roleConfig.color + '20',
-                        color: roleConfig.color,
+                        backgroundColor: '#27272a',
+                        color: '#a1a1aa',
                       }}
                     >
                       {member.avatar_url ? (
