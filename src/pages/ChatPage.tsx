@@ -62,9 +62,11 @@ interface DirectMessage {
   edited_at?: string | null;
   sender?: {
     username: string;
+    avatar_url?: string;
   };
   receiver?: {
     username: string;
+    avatar_url?: string;
   };
   attachments?: Attachment[];
 }
@@ -463,17 +465,30 @@ export default function ChatPage() {
 
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('username, global_rank')
+            .select('username, global_rank, avatar_url')
             .eq('id', payload.new.user_id)
             .maybeSingle();
+
+          const { data: attachments } = await supabase
+            .from('message_attachments')
+            .select('*')
+            .eq('message_id', payload.new.id);
 
           const newMessage = {
             ...payload.new,
             profiles: profileData,
+            attachments: attachments || [],
           } as Message;
 
           console.log('Adding message to state:', newMessage);
-          setMessages((prev) => [...prev, newMessage]);
+          setMessages((prev) => {
+            const messageExists = prev.some(msg => msg.id === newMessage.id);
+            if (messageExists) {
+              console.log('Message already exists, skipping duplicate:', newMessage.id);
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
         }
       )
       .subscribe((status, err) => {
@@ -503,8 +518,8 @@ export default function ChatPage() {
       .from('direct_messages')
       .select(`
         *,
-        sender:sender_id(username),
-        receiver:receiver_id(username)
+        sender:sender_id(username, avatar_url),
+        receiver:receiver_id(username, avatar_url)
       `)
       .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedFriend.id}),and(sender_id.eq.${selectedFriend.id},receiver_id.eq.${userId})`)
       .order('created_at', { ascending: true });
@@ -550,13 +565,19 @@ export default function ChatPage() {
         async (payload) => {
           const { data: senderData } = await supabase
             .from('profiles')
-            .select('username')
+            .select('username, avatar_url')
             .eq('id', payload.new.sender_id)
             .maybeSingle();
+
+          const { data: attachments } = await supabase
+            .from('message_attachments')
+            .select('*')
+            .eq('direct_message_id', payload.new.id);
 
           const newMessage = {
             ...payload.new,
             sender: senderData,
+            attachments: attachments || [],
           } as DirectMessage;
 
           setDirectMessages((prev) => {
@@ -848,7 +869,6 @@ export default function ChatPage() {
             }
           }
 
-          await loadMessages();
           setMessageInput('');
           setSelectedFiles([]);
           setReplyingTo(null);
