@@ -210,13 +210,21 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold overflow-hidden"
                       style={{
                         backgroundColor: roleConfig.color + '20',
                         color: roleConfig.color,
                       }}
                     >
-                      {member.username.charAt(0).toUpperCase()}
+                      {member.avatar_url ? (
+                        <img
+                          src={member.avatar_url}
+                          alt={member.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        member.username.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <span
                       className="text-sm font-medium"

@@ -22,6 +22,7 @@ interface MessageItemProps {
     profiles?: {
       username: string;
       global_rank?: string;
+      avatar_url?: string;
     };
     attachments?: Attachment[];
   };
@@ -130,7 +131,7 @@ export default function MessageItem({
     >
       <button
         onClick={() => onUserClick?.(message.user_id)}
-        className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold transition-transform hover:scale-110 cursor-pointer"
+        className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold transition-transform hover:scale-110 cursor-pointer overflow-hidden"
         style={{
           background: message.profiles?.global_rank
             ? `${getRankDisplayInfo(message.profiles.global_rank).color}40`
@@ -144,7 +145,15 @@ export default function MessageItem({
         }}
         title="View profile"
       >
-        {message.profiles?.username?.[0]?.toUpperCase() || 'U'}
+        {message.profiles?.avatar_url ? (
+          <img
+            src={message.profiles.avatar_url}
+            alt={message.profiles.username}
+            className="size-full object-cover"
+          />
+        ) : (
+          message.profiles?.username?.[0]?.toUpperCase() || 'U'
+        )}
       </button>
       <div className="flex-1">
         {parentMessage && (

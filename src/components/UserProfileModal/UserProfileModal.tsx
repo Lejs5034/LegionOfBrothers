@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap, Ban, UserCog } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap, Ban, UserCog, Camera, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { getRankOrder } from '../../utils/rankUtils';
@@ -45,6 +45,11 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
   const [showRankChange, setShowRankChange] = useState(false);
   const [changingRank, setChangingRank] = useState(false);
   const [availableRanks, setAvailableRanks] = useState<RankOption[]>([]);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [showAvatarUpload, setShowAvatarUpload] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadCurrentUser();
@@ -246,6 +251,87 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     }
   };
 
+  const isOwnProfile = () => currentUserId === userId;
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please select a valid image file (PNG, JPG, JPEG, or WEBP)');
+      return;
+    }
+
+    if (file.size > 5242880) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAvatarPreview(event.target?.result as string);
+      setShowAvatarUpload(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!selectedFile || !currentUserId) return;
+
+    try {
+      setUploadingAvatar(true);
+
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${currentUserId}/avatar-${Date.now()}.${fileExt}`;
+
+      if (profileData?.avatar_url) {
+        const oldPath = profileData.avatar_url.split('/').pop();
+        if (oldPath) {
+          await supabase.storage.from('avatars').remove([`${currentUserId}/${oldPath}`]);
+        }
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, selectedFile, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: urlData.publicUrl })
+        .eq('id', currentUserId);
+
+      if (updateError) throw updateError;
+
+      setShowAvatarUpload(false);
+      setSelectedFile(null);
+      setAvatarPreview(null);
+      await loadProfileData();
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      alert(error.message || 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const cancelAvatarUpload = () => {
+    setShowAvatarUpload(false);
+    setSelectedFile(null);
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const tabs: { id: TabType; label: string }[] = [
     { id: 'information', label: 'Information' },
     { id: 'journey', label: "Hero's Journey" },
@@ -345,11 +431,51 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                     transition={{ duration: 0.2 }}
                   >
                     <div className="flex items-start gap-6 mb-6">
-                      <div
-                        className="size-24 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-3xl"
-                        style={{ background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)' }}
-                      >
-                        {profileData.username[0]?.toUpperCase() || 'U'}
+                      <div className="relative flex-shrink-0">
+                        {profileData.avatar_url ? (
+                          <img
+                            src={profileData.avatar_url}
+                            alt={profileData.username}
+                            className="size-24 rounded-full object-cover"
+                            style={{ border: '3px solid rgba(6, 182, 212, 0.3)' }}
+                          />
+                        ) : (
+                          <div
+                            className="size-24 rounded-full flex items-center justify-center text-white font-bold text-3xl"
+                            style={{ background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)' }}
+                          >
+                            {profileData.username[0]?.toUpperCase() || 'U'}
+                          </div>
+                        )}
+                        {isOwnProfile() && (
+                          <>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/png,image/jpeg,image/jpg,image/webp"
+                              onChange={handleFileSelect}
+                              className="hidden"
+                            />
+                            <button
+                              onClick={() => fileInputRef.current?.click()}
+                              className="absolute bottom-0 right-0 p-2 rounded-full transition-all duration-200"
+                              style={{
+                                background: 'rgba(6, 182, 212, 0.9)',
+                                border: '2px solid rgba(17, 24, 39, 1)',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(6, 182, 212, 1)';
+                                e.currentTarget.style.transform = 'scale(1.1)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(6, 182, 212, 0.9)';
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            >
+                              <Camera size={16} style={{ color: 'white' }} />
+                            </button>
+                          </>
+                        )}
                       </div>
                       <div className="flex-1">
                         <h2 className="text-3xl font-black mb-2" style={{ color: 'white' }}>
@@ -810,6 +936,103 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
               >
                 Cancel
               </button>
+            </div>
+          </motion.div>
+        )}
+
+        {showAvatarUpload && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="absolute inset-0 flex items-center justify-center p-6"
+            style={{ background: 'rgba(0, 0, 0, 0.8)' }}
+            onClick={() => !uploadingAvatar && cancelAvatarUpload()}
+          >
+            <div
+              className="relative max-w-md w-full p-6 rounded-xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(31, 41, 55, 0.98) 100%)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className="p-3 rounded-full"
+                  style={{
+                    background: 'rgba(6, 182, 212, 0.1)',
+                    border: '1px solid rgba(6, 182, 212, 0.3)',
+                  }}
+                >
+                  <Upload size={24} style={{ color: '#06b6d4' }} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: 'white' }}>
+                    Change Profile Picture
+                  </h3>
+                  <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                    Preview your new avatar
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6 flex flex-col items-center">
+                <div className="mb-4">
+                  {avatarPreview && (
+                    <img
+                      src={avatarPreview}
+                      alt="Avatar preview"
+                      className="size-32 rounded-full object-cover"
+                      style={{ border: '3px solid rgba(6, 182, 212, 0.5)' }}
+                    />
+                  )}
+                </div>
+                <p className="text-sm text-center" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  This will be your new profile picture
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelAvatarUpload}
+                  disabled={uploadingAvatar}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  }}
+                  onMouseEnter={(e) => !uploadingAvatar && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)')}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAvatarUpload}
+                  disabled={uploadingAvatar}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background: uploadingAvatar ? 'rgba(6, 182, 212, 0.3)' : 'rgba(6, 182, 212, 0.2)',
+                    color: '#06b6d4',
+                    border: '1px solid rgba(6, 182, 212, 0.5)',
+                  }}
+                  onMouseEnter={(e) => !uploadingAvatar && (e.currentTarget.style.background = 'rgba(6, 182, 212, 0.3)')}
+                  onMouseLeave={(e) => !uploadingAvatar && (e.currentTarget.style.background = 'rgba(6, 182, 212, 0.2)')}
+                >
+                  {uploadingAvatar ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={16} />
+                      Save Picture
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </motion.div>
         )}

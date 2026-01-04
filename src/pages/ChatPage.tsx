@@ -32,6 +32,7 @@ interface Message {
   profiles?: {
     username: string;
     global_rank?: string;
+    avatar_url?: string;
   };
   attachments?: Attachment[];
 }
@@ -365,7 +366,7 @@ export default function ChatPage() {
       .from('messages')
       .select(`
         *,
-        profiles:user_id (username, global_rank)
+        profiles:user_id (username, global_rank, avatar_url)
       `)
       .eq('channel_id', selectedChannel.id)
       .order('created_at', { ascending: true });
