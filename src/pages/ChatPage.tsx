@@ -1406,29 +1406,64 @@ export default function ChatPage() {
       color: 'var(--text)'
     }}>
       {/* Mobile Header Bar - Only visible on mobile */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="md:hidden flex items-center px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <button
           onClick={() => setShowMobileMenu(true)}
-          className="p-2 rounded-lg transition-colors"
+          className="p-2 rounded-lg transition-colors flex-shrink-0"
           style={{ color: 'var(--text-muted)' }}
         >
           <Menu size={24} />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           {viewMode === 'servers' ? (
             <>
               <Hash size={18} style={{ color: 'var(--text-muted)' }} />
-              <h2 className="font-semibold capitalize" style={{ color: 'var(--text)' }}>
+              <h2 className="font-semibold capitalize truncate" style={{ color: 'var(--text)' }}>
                 {selectedChannel?.name || 'Select a channel'}
               </h2>
             </>
           ) : (
             <>
-              <div className="size-8 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: 'var(--accent-grad)' }}>
-                {selectedFriend?.username[0].toUpperCase() || '?'}
+              <div
+                className="size-8 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden flex-shrink-0"
+                style={{
+                  background: selectedFriend?.global_rank
+                    ? `${getRankDisplayInfo(selectedFriend.global_rank).color}40`
+                    : 'var(--accent-grad)',
+                  color: selectedFriend?.global_rank
+                    ? getRankDisplayInfo(selectedFriend.global_rank).color
+                    : 'white',
+                  border: selectedFriend?.global_rank
+                    ? `2px solid ${getRankDisplayInfo(selectedFriend.global_rank).color}20`
+                    : 'none'
+                }}
+              >
+                {selectedFriend?.avatar_url ? (
+                  <img
+                    src={selectedFriend.avatar_url}
+                    alt={selectedFriend.username}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  selectedFriend?.username[0].toUpperCase() || '?'
+                )}
               </div>
-              <h2 className="font-semibold" style={{ color: 'var(--text)' }}>
-                {selectedFriend?.username || 'Select a friend'}
+              <h2
+                className="font-semibold truncate flex items-center gap-1.5"
+                style={{
+                  color: selectedFriend?.global_rank
+                    ? getRankDisplayInfo(selectedFriend.global_rank).color
+                    : 'var(--text)'
+                }}
+              >
+                <span className="truncate">
+                  {selectedFriend?.username || 'Select a friend'}
+                </span>
+                {selectedFriend?.global_rank && (
+                  <span className="text-base flex-shrink-0">
+                    {getRankDisplayInfo(selectedFriend.global_rank).emoji}
+                  </span>
+                )}
               </h2>
             </>
           )}
@@ -1436,7 +1471,7 @@ export default function ChatPage() {
         {viewMode === 'servers' && (
           <button
             onClick={() => setShowMobileMembers(true)}
-            className="p-2 rounded-lg transition-colors"
+            className="p-2 rounded-lg transition-colors flex-shrink-0"
             style={{ color: 'var(--text-muted)' }}
           >
             <Users size={24} />
