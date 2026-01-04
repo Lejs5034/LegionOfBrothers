@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Play, Bookmark, BookmarkCheck, Plus, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Play, Bookmark, BookmarkCheck, Plus, X, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import DebugPanel from '../components/DebugPanel/DebugPanel';
+import ConfirmationModal from '../components/ConfirmationModal/ConfirmationModal';
 
 interface Course {
   id: string;
@@ -63,6 +64,9 @@ export default function LearningCenterPage() {
     canUpload: false,
     reason: '',
   });
+  const [courseToDelete, setCourseToDelete] = useState<CourseWithProgress | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -420,6 +424,97 @@ export default function LearningCenterPage() {
     }
   };
 
+  const handleDeleteCourse = async () => {
+    if (!courseToDelete || !serverId || !userId) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const { data: serverData } = await supabase
+        .from('servers')
+        .select('id')
+        .eq('slug', serverId)
+        .maybeSingle();
+
+      if (!serverData) {
+        setDeleteError('Server not found');
+        return;
+      }
+
+      const storageErrors: string[] = [];
+
+      if (courseToDelete.video_url) {
+        const videoPath = courseToDelete.video_url.split('/uploads/')[1];
+        if (videoPath) {
+          const { error: videoDeleteError } = await supabase.storage
+            .from('uploads')
+            .remove([videoPath]);
+
+          if (videoDeleteError) {
+            console.error('Failed to delete video file:', videoDeleteError);
+            storageErrors.push(`Video: ${videoDeleteError.message}`);
+          }
+        }
+      }
+
+      if (courseToDelete.cover_image_url) {
+        const coverPath = courseToDelete.cover_image_url.split('/uploads/')[1];
+        if (coverPath) {
+          const { error: coverDeleteError } = await supabase.storage
+            .from('uploads')
+            .remove([coverPath]);
+
+          if (coverDeleteError) {
+            console.error('Failed to delete cover image:', coverDeleteError);
+            storageErrors.push(`Cover image: ${coverDeleteError.message}`);
+          }
+        }
+      }
+
+      const { error: dbError } = await supabase
+        .from('courses')
+        .delete()
+        .eq('id', courseToDelete.id);
+
+      if (dbError) {
+        setDeleteError(`Failed to delete course: ${dbError.message}`);
+        return;
+      }
+
+      if (storageErrors.length > 0) {
+        setDeleteError(`Course deleted but some files failed to delete: ${storageErrors.join(', ')}`);
+      }
+
+      setCourses(prevCourses => prevCourses.filter(c => c.id !== courseToDelete.id));
+      setCourseToDelete(null);
+
+      if (storageErrors.length === 0) {
+        const notification = document.createElement('div');
+        notification.textContent = 'Course deleted successfully';
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white;
+          padding: 16px 24px;
+          border-radius: 8px;
+          font-weight: 600;
+          z-index: 9999;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        `;
+        document.body.appendChild(notification);
+        setTimeout(() => document.body.removeChild(notification), 3000);
+      }
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      setDeleteError(error instanceof Error ? error.message : 'An unexpected error occurred');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const filteredCourses = getFilteredCourses();
 
   return (
@@ -624,16 +719,34 @@ export default function LearningCenterPage() {
                     </div>
                   )}
 
-                  <button
-                    onClick={() => handleStartCourse(course)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white transition-all"
-                    style={{ background: 'var(--accent-grad)' }}
-                    onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
-                    onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
-                  >
-                    <Play size={16} />
-                    <span>{course.progress ? 'Continue Course' : 'Start Course'}</span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleStartCourse(course)}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-white transition-all"
+                      style={{ background: 'var(--accent-grad)' }}
+                      onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.1)'}
+                      onMouseLeave={(e) => e.currentTarget.style.filter = 'brightness(1)'}
+                    >
+                      <Play size={16} />
+                      <span>{course.progress ? 'Continue Course' : 'Start Course'}</span>
+                    </button>
+                    {canUpload && (
+                      <button
+                        onClick={() => setCourseToDelete(course)}
+                        className="p-2 rounded-lg transition-all"
+                        style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                        }}
+                        title="Delete Course"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -826,7 +939,7 @@ export default function LearningCenterPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
-              <div>
+              <div className="flex-1 min-w-0 mr-4">
                 <h2 className="text-xl font-bold" style={{ color: 'var(--text)' }}>
                   {selectedCourse.title}
                 </h2>
@@ -840,15 +953,36 @@ export default function LearningCenterPage() {
                   {selectedCourse.category || 'General'}
                 </span>
               </div>
-              <button
-                onClick={() => setSelectedCourse(null)}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: 'var(--text-muted)' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-              >
-                <X size={24} />
-              </button>
+              <div className="flex items-center gap-2">
+                {canUpload && (
+                  <button
+                    onClick={() => {
+                      setSelectedCourse(null);
+                      setCourseToDelete(selectedCourse);
+                    }}
+                    className="p-2 rounded-lg transition-all"
+                    style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                    }}
+                    title="Delete Course"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedCourse(null)}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <X size={24} />
+                </button>
+              </div>
             </div>
 
             <div className="p-4">
@@ -897,6 +1031,26 @@ export default function LearningCenterPage() {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={!!courseToDelete}
+        onClose={() => {
+          setCourseToDelete(null);
+          setDeleteError(null);
+        }}
+        onConfirm={handleDeleteCourse}
+        title="Delete Course"
+        message={
+          deleteError
+            ? deleteError
+            : `Are you sure you want to delete "${courseToDelete?.title}"? This will permanently remove the course, its video, and cover image. This action cannot be undone.`
+        }
+        confirmText="Delete Course"
+        requireTyping={true}
+        typingText="DELETE"
+        isDestructive={true}
+        loading={isDeleting}
+      />
 
       {isDebugAuthorized && serverId && (
         <DebugPanel debugInfo={debugInfo} serverId={serverId} />
