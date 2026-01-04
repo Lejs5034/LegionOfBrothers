@@ -68,6 +68,7 @@ body {
 
 .server-icon:hover {
   border-radius: 12px;
+  filter: brightness(1.2);
 }
 
 .server-icon.active {
@@ -80,7 +81,7 @@ body {
   left: -8px;
   width: 4px;
   height: 32px;
-  background: var(--text);
+  background: #d4d4d8;
   border-radius: 0 4px 4px 0;
 }
 

@@ -1384,9 +1384,12 @@ export default function ChatPage() {
                 }}
                 className={`server-icon ${viewMode === 'friends' ? 'active' : ''}`}
                 title="Friends"
-                style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
+                style={{
+                  background: viewMode === 'friends' ? '#52525b' : '#3f3f46',
+                  color: viewMode === 'friends' ? '#ffffff' : '#a1a1aa'
+                }}
               >
-                <Users size={24} className="text-white" />
+                <Users size={24} />
               </button>
               <div className="w-8 h-px my-1" style={{ background: 'var(--border)' }} />
               {servers.map((server) => {
@@ -1400,9 +1403,12 @@ export default function ChatPage() {
                     }}
                     className={`server-icon ${isActive ? 'active' : ''}`}
                     title={server.name}
-                    style={{ background: `linear-gradient(135deg, ${getGradientColors(server.gradient)})` }}
+                    style={{
+                      background: isActive ? '#52525b' : '#3f3f46',
+                      color: isActive ? '#ffffff' : '#a1a1aa'
+                    }}
                   >
-                    <Icon size={24} className="text-white" />
+                    <Icon size={24} />
                   </button>
                 );
               })}
@@ -1606,9 +1612,12 @@ export default function ChatPage() {
           onClick={handleFriendsClick}
           className={`server-icon ${viewMode === 'friends' ? 'active' : ''}`}
           title="Friends"
-          style={{ background: 'linear-gradient(135deg, #a855f7, #ec4899)' }}
+          style={{
+            background: viewMode === 'friends' ? '#52525b' : '#3f3f46',
+            color: viewMode === 'friends' ? '#ffffff' : '#a1a1aa'
+          }}
         >
-          <Users size={24} className="text-white" />
+          <Users size={24} />
         </button>
         <div className="w-8 h-px my-1" style={{ background: 'var(--border)' }} />
         {servers.map((server) => {
@@ -1620,9 +1629,12 @@ export default function ChatPage() {
               onClick={() => handleServerChange(server.id)}
               className={`server-icon ${isActive ? 'active' : ''}`}
               title={server.name}
-              style={{ background: `linear-gradient(135deg, ${getGradientColors(server.gradient)})` }}
+              style={{
+                background: isActive ? '#52525b' : '#3f3f46',
+                color: isActive ? '#ffffff' : '#a1a1aa'
+              }}
             >
-              <Icon size={24} className="text-white" />
+              <Icon size={24} />
             </button>
           );
         })}
