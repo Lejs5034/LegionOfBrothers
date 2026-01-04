@@ -30,13 +30,13 @@ const SiteNav: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <a 
-                href="/" 
+              <a
+                href="/"
                 className="flex items-center"
               >
-                <img 
-                  src="/.bolt/Icons/ChatGPT Image 21. Sept. 2025, 17_51_24.png" 
-                  alt="The Legion of Brothers" 
+                <img
+                  src="/lob-logo.png"
+                  alt="The Legion of Brothers"
                   className="h-10 w-auto hover:scale-105 transition-transform duration-300"
                 />
               </a>
