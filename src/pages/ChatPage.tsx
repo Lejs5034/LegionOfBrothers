@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign, Plus, Trash, Menu } from 'lucide-react';
+import { Hash, Settings, Dumbbell, TrendingUp, Pencil, Briefcase, Send, LogOut, X, User, Mail, Lock, Edit2, UserPlus, Users, MoreVertical, Trash2, Check, Paperclip, Download, FileText, Image as ImageIcon, Building2, PanelRightClose, PanelRight, AtSign, Plus, Trash, Menu, Camera, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import FriendRequest from '../components/FriendRequest/FriendRequest';
@@ -142,6 +142,12 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [showAvatarUpload, setShowAvatarUpload] = useState(false);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     localStorage.setItem('showMemberList', JSON.stringify(showMemberList));
@@ -159,22 +165,14 @@ export default function ChatPage() {
 
         const { data: profile } = await supabase
           .from('profiles')
-          .select('username')
+          .select('username, avatar_url, global_rank')
           .eq('id', data.session.user.id)
           .maybeSingle();
 
         if (profile) {
           setUsername(profile.username);
-        }
-
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('global_rank')
-          .eq('id', data.session.user.id)
-          .maybeSingle();
-
-        if (profileData) {
-          setCurrentUserRank(profileData.global_rank);
+          setAvatarUrl(profile.avatar_url || '');
+          setCurrentUserRank(profile.global_rank);
         }
 
         setReady(true);
@@ -1135,6 +1133,85 @@ export default function ChatPage() {
     }
   };
 
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please select a valid image file (PNG, JPG, JPEG, or WEBP)');
+      return;
+    }
+
+    if (file.size > 5242880) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setSelectedAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAvatarPreview(event.target?.result as string);
+      setShowAvatarUpload(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!selectedAvatarFile || !userId) return;
+
+    try {
+      setUploadingAvatar(true);
+
+      const fileExt = selectedAvatarFile.name.split('.').pop();
+      const fileName = `${userId}/avatar-${Date.now()}.${fileExt}`;
+
+      if (avatarUrl) {
+        const oldPath = avatarUrl.split('/').pop();
+        if (oldPath) {
+          await supabase.storage.from('avatars').remove([`${userId}/${oldPath}`]);
+        }
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, selectedAvatarFile, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: urlData.publicUrl })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(urlData.publicUrl);
+      setShowAvatarUpload(false);
+      setSelectedAvatarFile(null);
+      setAvatarPreview(null);
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      alert(error.message || 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const cancelAvatarUpload = () => {
+    setShowAvatarUpload(false);
+    setSelectedAvatarFile(null);
+    setAvatarPreview(null);
+    if (avatarFileInputRef.current) {
+      avatarFileInputRef.current.value = '';
+    }
+  };
+
   const handleCreateChannel = async () => {
     if (!newChannelName.trim() || creatingChannel) return;
 
@@ -1720,9 +1797,18 @@ export default function ChatPage() {
         </nav>
 
         <div className="mt-auto p-3 flex items-center gap-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
-          <div className="size-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: 'var(--accent-grad)' }}>
-            {username.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
-          </div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={username}
+              className="size-9 rounded-full object-cover"
+              style={{ border: '2px solid rgba(6, 182, 212, 0.3)' }}
+            />
+          ) : (
+            <div className="size-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: 'var(--accent-grad)' }}>
+              {username.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex-1 overflow-hidden">
             <div className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{username || userEmail.split('@')[0]}</div>
             <div className="flex items-center space-x-1">
@@ -1767,8 +1853,45 @@ export default function ChatPage() {
             <div className="p-6 space-y-6">
               {/* Profile Header */}
               <div className="flex items-center gap-4 pb-6" style={{ borderBottom: '1px solid var(--border)' }}>
-                <div className="size-20 rounded-full flex items-center justify-center text-white font-bold text-2xl" style={{ background: 'var(--accent-grad)' }}>
-                  {username.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
+                <div className="relative">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={username}
+                      className="size-20 rounded-full object-cover"
+                      style={{ border: '3px solid rgba(6, 182, 212, 0.3)' }}
+                    />
+                  ) : (
+                    <div className="size-20 rounded-full flex items-center justify-center text-white font-bold text-2xl" style={{ background: 'var(--accent-grad)' }}>
+                      {username.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <input
+                    ref={avatarFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    onChange={handleAvatarFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => avatarFileInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 p-2 rounded-full transition-all duration-200 shadow-lg"
+                    style={{
+                      background: 'rgba(6, 182, 212, 0.9)',
+                      border: '2px solid var(--surface)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(6, 182, 212, 1)';
+                      e.currentTarget.style.transform = 'scale(1.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(6, 182, 212, 0.9)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    title="Change profile picture"
+                  >
+                    <Camera size={16} style={{ color: 'white' }} />
+                  </button>
                 </div>
                 <div>
                   <div className="text-xl font-bold" style={{ color: 'var(--text)' }}>{username || userEmail.split('@')[0]}</div>
@@ -1960,6 +2083,100 @@ export default function ChatPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Avatar Upload Preview Modal */}
+      {showAvatarUpload && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.8)' }} onClick={() => !uploadingAvatar && cancelAvatarUpload()}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="w-full max-w-md mx-4 rounded-xl shadow-2xl p-6"
+            style={{
+              background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(31, 41, 55, 0.98) 100%)',
+              border: '1px solid rgba(6, 182, 212, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className="p-3 rounded-full"
+                style={{
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                }}
+              >
+                <Upload size={24} style={{ color: '#06b6d4' }} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold" style={{ color: 'white' }}>
+                  Change Profile Picture
+                </h3>
+                <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                  Preview your new avatar
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6 flex flex-col items-center">
+              <div className="mb-4">
+                {avatarPreview && (
+                  <img
+                    src={avatarPreview}
+                    alt="Avatar preview"
+                    className="size-32 rounded-full object-cover"
+                    style={{ border: '3px solid rgba(6, 182, 212, 0.5)' }}
+                  />
+                )}
+              </div>
+              <p className="text-sm text-center" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                This will be your new profile picture
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cancelAvatarUpload}
+                disabled={uploadingAvatar}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                }}
+                onMouseEnter={(e) => !uploadingAvatar && (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)')}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAvatarUpload}
+                disabled={uploadingAvatar}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                style={{
+                  background: uploadingAvatar ? 'rgba(6, 182, 212, 0.3)' : 'rgba(6, 182, 212, 0.2)',
+                  color: '#06b6d4',
+                  border: '1px solid rgba(6, 182, 212, 0.5)',
+                }}
+                onMouseEnter={(e) => !uploadingAvatar && (e.currentTarget.style.background = 'rgba(6, 182, 212, 0.3)')}
+                onMouseLeave={(e) => !uploadingAvatar && (e.currentTarget.style.background = 'rgba(6, 182, 212, 0.2)')}
+              >
+                {uploadingAvatar ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={16} />
+                    Save Picture
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
 
