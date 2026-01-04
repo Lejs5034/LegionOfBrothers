@@ -1385,8 +1385,7 @@ export default function ChatPage() {
                 className={`server-icon ${viewMode === 'friends' ? 'active' : ''}`}
                 title="Friends"
                 style={{
-                  background: viewMode === 'friends' ? '#52525b' : '#3f3f46',
-                  color: viewMode === 'friends' ? '#ffffff' : '#a1a1aa'
+                  color: viewMode === 'friends' ? '#ffffff' : '#71717a'
                 }}
               >
                 <Users size={24} />
@@ -1404,8 +1403,7 @@ export default function ChatPage() {
                     className={`server-icon ${isActive ? 'active' : ''}`}
                     title={server.name}
                     style={{
-                      background: isActive ? '#52525b' : '#3f3f46',
-                      color: isActive ? '#ffffff' : '#a1a1aa'
+                      color: isActive ? '#ffffff' : '#71717a'
                     }}
                   >
                     <Icon size={24} />
@@ -1613,8 +1611,7 @@ export default function ChatPage() {
           className={`server-icon ${viewMode === 'friends' ? 'active' : ''}`}
           title="Friends"
           style={{
-            background: viewMode === 'friends' ? '#52525b' : '#3f3f46',
-            color: viewMode === 'friends' ? '#ffffff' : '#a1a1aa'
+            color: viewMode === 'friends' ? '#ffffff' : '#71717a'
           }}
         >
           <Users size={24} />
@@ -1630,8 +1627,7 @@ export default function ChatPage() {
               className={`server-icon ${isActive ? 'active' : ''}`}
               title={server.name}
               style={{
-                background: isActive ? '#52525b' : '#3f3f46',
-                color: isActive ? '#ffffff' : '#a1a1aa'
+                color: isActive ? '#ffffff' : '#71717a'
               }}
             >
               <Icon size={24} />
