@@ -193,7 +193,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
                 {roleConfig.label} — {members.length}
               </h3>
             </div>
-            <div className="space-y-1">
+            <div>
               {members.length === 0 ? (
                 <div className="px-2 py-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                   No members
@@ -202,11 +202,11 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
                 members.map(member => (
                   <div
                     key={member.id}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors"
+                    className="flex items-center gap-2 px-2 py-1 cursor-pointer transition-colors"
                     style={{
                       background: 'transparent'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
                     <div
