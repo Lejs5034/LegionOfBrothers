@@ -11,6 +11,13 @@ interface Attachment {
   storage_path: string;
 }
 
+interface ServerRole {
+  name: string;
+  rank: number;
+  color: string;
+  icon: string;
+}
+
 interface MessageItemProps {
   message: {
     id: string;
@@ -23,6 +30,7 @@ interface MessageItemProps {
       username: string;
       global_rank?: string;
       avatar_url?: string;
+      server_role?: ServerRole | null;
     };
     attachments?: Attachment[];
   };
@@ -133,14 +141,14 @@ export default function MessageItem({
         onClick={() => onUserClick?.(message.user_id)}
         className="size-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold transition-transform hover:scale-110 cursor-pointer overflow-hidden"
         style={{
-          background: message.profiles?.global_rank
-            ? `${getRankDisplayInfo(message.profiles.global_rank).color}40`
+          background: message.profiles?.server_role
+            ? `${message.profiles.server_role.color}40`
             : 'var(--accent-grad)',
-          color: message.profiles?.global_rank
-            ? getRankDisplayInfo(message.profiles.global_rank).color
+          color: message.profiles?.server_role
+            ? message.profiles.server_role.color
             : 'white',
-          border: message.profiles?.global_rank
-            ? `2px solid ${getRankDisplayInfo(message.profiles.global_rank).color}20`
+          border: message.profiles?.server_role
+            ? `2px solid ${message.profiles.server_role.color}20`
             : 'none'
         }}
         title="View profile"
@@ -178,17 +186,17 @@ export default function MessageItem({
             onClick={() => onUserClick?.(message.user_id)}
             className="font-semibold hover:underline transition-all cursor-pointer"
             style={{
-              color: message.profiles?.global_rank
-                ? getRankDisplayInfo(message.profiles.global_rank).color
+              color: message.profiles?.server_role
+                ? message.profiles.server_role.color
                 : 'var(--text)'
             }}
             title="View profile"
           >
             {message.profiles?.username || 'Unknown'}
           </button>
-          {message.profiles?.global_rank && (
-            <span className="text-base" title={getRankDisplayInfo(message.profiles.global_rank).label}>
-              {getRankDisplayInfo(message.profiles.global_rank).emoji}
+          {message.profiles?.server_role && (
+            <span className="text-base" title={message.profiles.server_role.name}>
+              {message.profiles.server_role.icon}
             </span>
           )}
           {isMentioned && (

@@ -4,6 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { getRankOrder } from '../../utils/rankUtils';
 import { getRankDisplayInfo } from '../../utils/displayRankUtils';
+import RoleManagementModal from '../RoleManagementModal/RoleManagementModal';
+
+interface ServerRole {
+  id: string;
+  name: string;
+  rank: number;
+  color: string;
+  icon: string;
+}
 
 interface UserProfileData {
   id: string;
@@ -15,8 +24,8 @@ interface UserProfileData {
   login_streak: number;
   created_at: string;
   is_banned: boolean;
-  server_role?: string;
-  server_role_color?: string;
+  server_role?: ServerRole | null;
+  role_id?: string;
 }
 
 interface UserProfileModalProps {
@@ -50,6 +59,7 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
   const [showAvatarUpload, setShowAvatarUpload] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showRoleManagementModal, setShowRoleManagementModal] = useState(false);
 
   useEffect(() => {
     loadCurrentUser();
@@ -105,19 +115,36 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
         .maybeSingle();
 
       let serverRole = null;
-      let serverRoleColor = null;
+      let roleId = null;
 
       if (serverId) {
-        const { data: memberData } = await supabase
-          .from('server_members')
-          .select('role_in_server')
-          .eq('user_id', userId)
-          .eq('server_id', serverId)
+        const { data: serverData } = await supabase
+          .from('servers')
+          .select('id')
+          .eq('slug', serverId)
           .maybeSingle();
 
-        if (memberData) {
-          serverRole = memberData.role_in_server;
-          serverRoleColor = memberData.role_in_server === 'admin' ? '#f59e0b' : '#3b82f6';
+        if (serverData) {
+          const { data: memberData } = await supabase
+            .from('server_members')
+            .select(`
+              role_id,
+              server_roles:role_id (
+                id,
+                name,
+                rank,
+                color,
+                icon
+              )
+            `)
+            .eq('user_id', userId)
+            .eq('server_id', serverData.id)
+            .maybeSingle();
+
+          if (memberData?.server_roles) {
+            serverRole = memberData.server_roles as any;
+            roleId = memberData.role_id;
+          }
         }
       }
 
@@ -132,7 +159,7 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
         created_at: profileView.created_at,
         is_banned: profileView.is_banned,
         server_role: serverRole,
-        server_role_color: serverRoleColor,
+        role_id: roleId,
       });
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -492,13 +519,13 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                             <span
                               className="px-3 py-1 rounded-full text-sm font-semibold"
                               style={{
-                                background: `${profileData.server_role_color}20`,
-                                color: profileData.server_role_color,
-                                border: `1px solid ${profileData.server_role_color}50`,
+                                background: `${profileData.server_role.color}20`,
+                                color: profileData.server_role.color,
+                                border: `1px solid ${profileData.server_role.color}50`,
                               }}
                             >
-                              <Shield size={14} className="inline mr-1" />
-                              {profileData.server_role}
+                              <span className="mr-1">{profileData.server_role.icon}</span>
+                              {profileData.server_role.name}
                             </span>
                           )}
                           {profileData.is_banned && (
@@ -513,9 +540,9 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                               🚫 Banned
                             </span>
                           )}
-                          {canChangeRank() && (
+                          {canChangeRank() && serverId && (
                             <button
-                              onClick={() => setShowRankChange(true)}
+                              onClick={() => setShowRoleManagementModal(true)}
                               className="px-3 py-1 rounded-full text-sm font-semibold transition-all flex items-center gap-1"
                               style={{
                                 background: 'rgba(139, 92, 246, 0.1)',
@@ -532,7 +559,7 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                               }}
                             >
                               <UserCog size={14} />
-                              Change Rank
+                              Manage Server Role
                             </button>
                           )}
                           {canBanUser() && (
@@ -1037,6 +1064,25 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
           </motion.div>
         )}
       </motion.div>
+
+      {showRoleManagementModal && profileData && serverId && (
+        <RoleManagementModal
+          isOpen={showRoleManagementModal}
+          onClose={() => setShowRoleManagementModal(false)}
+          targetUser={{
+            id: profileData.id,
+            username: profileData.username,
+            global_rank: profileData.global_rank,
+            role_id: profileData.role_id,
+          }}
+          currentUserRank={currentUserRank}
+          serverSlug={serverId}
+          onSuccess={() => {
+            setShowRoleManagementModal(false);
+            loadProfileData();
+          }}
+        />
+      )}
     </AnimatePresence>
   );
 }

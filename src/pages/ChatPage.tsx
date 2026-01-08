@@ -23,6 +23,13 @@ interface Attachment {
   created_at: string;
 }
 
+interface ServerRole {
+  name: string;
+  rank: number;
+  color: string;
+  icon: string;
+}
+
 interface Message {
   id: string;
   content: string;
@@ -32,9 +39,11 @@ interface Message {
   edited_at?: string | null;
   parent_message_id?: string | null;
   profiles?: {
+    id?: string;
     username: string;
     global_rank?: string;
     avatar_url?: string;
+    server_role?: ServerRole | null;
   };
   attachments?: Attachment[];
 }
@@ -399,29 +408,70 @@ export default function ChatPage() {
       .from('messages')
       .select(`
         *,
-        profiles:user_id (username, global_rank, avatar_url)
+        profiles:user_id (
+          id,
+          username,
+          global_rank,
+          avatar_url
+        )
       `)
       .eq('channel_id', selectedChannel.id)
       .order('created_at', { ascending: true });
 
     if (messagesData) {
-      const messagesWithAttachments = await Promise.all(
+      const serverSlug = servers.find(s => s.id === selectedServer)?.slug;
+      const { data: serverData } = await supabase
+        .from('servers')
+        .select('id')
+        .eq('slug', serverSlug)
+        .maybeSingle();
+
+      const messagesWithRoles = await Promise.all(
         messagesData.map(async (msg: any) => {
           const { data: attachments } = await supabase
             .from('message_attachments')
             .select('*')
             .eq('message_id', msg.id);
 
-          return { ...msg, attachments: attachments || [] } as Message;
+          let serverRole = null;
+          if (serverData && msg.profiles?.id) {
+            const { data: memberData } = await supabase
+              .from('server_members')
+              .select(`
+                role_id,
+                server_roles:role_id (
+                  name,
+                  rank,
+                  color,
+                  icon
+                )
+              `)
+              .eq('server_id', serverData.id)
+              .eq('user_id', msg.profiles.id)
+              .maybeSingle();
+
+            if (memberData?.server_roles) {
+              serverRole = memberData.server_roles;
+            }
+          }
+
+          return {
+            ...msg,
+            attachments: attachments || [],
+            profiles: {
+              ...msg.profiles,
+              server_role: serverRole,
+            }
+          } as Message;
         })
       );
 
-      setMessages(messagesWithAttachments);
-      loadReplyCounts(messagesWithAttachments);
+      setMessages(messagesWithRoles);
+      loadReplyCounts(messagesWithRoles);
     }
 
     loadPinnedMessages();
-  }, [selectedChannel]);
+  }, [selectedChannel, selectedServer]);
 
   const loadPinnedMessages = async () => {
     if (!selectedChannel) return;
