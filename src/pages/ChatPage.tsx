@@ -2533,7 +2533,7 @@ export default function ChatPage() {
       )}
 
       {/* Chat section */}
-      <main className="flex-1 md:grid grid-rows-[auto_1fr_auto] overflow-hidden flex flex-col">
+      <main className="flex-1 overflow-hidden flex flex-col md:grid md:grid-rows-[auto_1fr_auto]">
         {/* Desktop Header - Hidden on mobile */}
         <div className="hidden md:flex px-6 py-4 items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center space-x-2">
@@ -2637,7 +2637,7 @@ export default function ChatPage() {
           )}
         </div>
 
-        <div className="flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-hidden flex flex-col md:contents">
           {viewMode === 'servers' && selectedChannel && (
             <PinnedMessagesBar
               channelId={selectedChannel.id}
@@ -2646,7 +2646,7 @@ export default function ChatPage() {
               onUnpin={(messageId) => handleTogglePin(messageId, true)}
             />
           )}
-          <div className="p-6 overflow-y-auto flex flex-col gap-3 flex-1">
+          <div className="p-6 overflow-y-auto flex flex-col gap-3 flex-1 min-h-0">
             {viewMode === 'servers' ? (
               messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
@@ -2893,7 +2893,7 @@ export default function ChatPage() {
           </div>
         </div>
 
-        <div className="p-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="p-4 flex-shrink-0 bg-[var(--bg)] relative z-10" style={{ borderTop: '1px solid var(--border)' }}>
           {viewMode === 'servers' && !canWriteInChannel && (
             <div
               className="mb-2 px-3 py-2 rounded-lg flex items-center gap-2"
