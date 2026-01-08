@@ -440,10 +440,12 @@ export default function ChatPage() {
               .select(`
                 role_id,
                 server_roles:role_id (
+                  id,
                   name,
                   rank,
                   color,
-                  icon
+                  icon,
+                  role_key
                 )
               `)
               .eq('server_id', serverData.id)
@@ -548,7 +550,7 @@ export default function ChatPage() {
 
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('username, global_rank, avatar_url')
+            .select('id, username, global_rank, avatar_url')
             .eq('id', payload.new.user_id)
             .maybeSingle();
 
@@ -557,9 +559,44 @@ export default function ChatPage() {
             .select('*')
             .eq('message_id', payload.new.id);
 
+          let serverRole = null;
+          if (selectedServer && profileData?.id) {
+            const { data: serverData } = await supabase
+              .from('servers')
+              .select('id')
+              .eq('slug', selectedServer)
+              .maybeSingle();
+
+            if (serverData) {
+              const { data: memberData } = await supabase
+                .from('server_members')
+                .select(`
+                  role_id,
+                  server_roles:role_id (
+                    id,
+                    name,
+                    rank,
+                    color,
+                    icon,
+                    role_key
+                  )
+                `)
+                .eq('server_id', serverData.id)
+                .eq('user_id', profileData.id)
+                .maybeSingle();
+
+              if (memberData?.server_roles) {
+                serverRole = memberData.server_roles;
+              }
+            }
+          }
+
           const newMessage = {
             ...payload.new,
-            profiles: profileData,
+            profiles: {
+              ...profileData,
+              server_role: serverRole,
+            },
             attachments: attachments || [],
           } as Message;
 
