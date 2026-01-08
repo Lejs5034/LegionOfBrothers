@@ -109,9 +109,8 @@ export default function RoleManagementModal({
   };
 
   const canPromoteToHead =
-    currentUserRank === 'app_developer' &&
-    serverSlug === 'headquarters' &&
-    targetUser.global_rank !== 'the_head';
+    ['the_head', 'app_developer'].includes(currentUserRank) &&
+    serverSlug === 'headquarters';
 
   const handlePromoteToHead = async () => {
     setLoading(true);

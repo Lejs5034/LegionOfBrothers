@@ -202,7 +202,7 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
       if (ranks) {
         const currentUserRankOrder = getRankOrder(currentUserRank);
         const filteredRanks = ranks
-          .filter(r => getRankOrder(r.rank) < currentUserRankOrder)
+          .filter(r => getRankOrder(r.rank) <= currentUserRankOrder)
           .sort((a, b) => getRankOrder(b.rank) - getRankOrder(a.rank));
         setAvailableRanks(filteredRanks);
       }
@@ -215,14 +215,14 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     if (!profileData || !currentUserId) return false;
     if (currentUserId === userId) return false;
     if (profileData.is_banned) return false;
-    return getRankOrder(currentUserRank) > getRankOrder(profileData.global_rank);
+    return getRankOrder(currentUserRank) >= getRankOrder(profileData.global_rank);
   };
 
   const canChangeRank = () => {
     if (!profileData || !currentUserId) return false;
     if (currentUserId === userId) return false;
     if (profileData.is_banned) return false;
-    return getRankOrder(currentUserRank) > getRankOrder(profileData.global_rank);
+    return getRankOrder(currentUserRank) >= getRankOrder(profileData.global_rank);
   };
 
   const handleBanUser = async () => {
