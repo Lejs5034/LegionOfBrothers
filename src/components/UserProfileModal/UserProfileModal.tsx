@@ -193,6 +193,64 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     };
   };
 
+  const getEffectiveRole = () => {
+    if (!profileData) return null;
+
+    const globalRankInfo = getRankDisplayInfo(profileData.global_rank);
+    const serverRole = profileData.server_role;
+
+    if (!serverRole) {
+      return {
+        type: 'global' as const,
+        label: globalRankInfo.label,
+        emoji: globalRankInfo.emoji,
+        color: globalRankInfo.color,
+      };
+    }
+
+    const normalizedGlobalLabel = globalRankInfo.label.toLowerCase().trim();
+    const normalizedServerLabel = serverRole.name.toLowerCase().trim();
+
+    if (normalizedGlobalLabel === normalizedServerLabel) {
+      return {
+        type: 'global' as const,
+        label: globalRankInfo.label,
+        emoji: globalRankInfo.emoji,
+        color: globalRankInfo.color,
+      };
+    }
+
+    const globalAuthority = getRankOrder(profileData.global_rank);
+    const serverRankKeys = ['the_head', 'app_developer', 'admin',
+                           'business_mastery_professor', 'crypto_trading_professor',
+                           'copywriting_professor', 'fitness_professor',
+                           'business_mentor', 'crypto_trading_mentor',
+                           'copywriting_mentor', 'coach'];
+
+    const matchingKey = serverRankKeys.find(key => {
+      const keyInfo = getRankDisplayInfo(key);
+      return keyInfo.label.toLowerCase().trim() === normalizedServerLabel;
+    });
+
+    const serverAuthority = matchingKey ? getRankOrder(matchingKey) : 10;
+
+    if (globalAuthority >= serverAuthority) {
+      return {
+        type: 'global' as const,
+        label: globalRankInfo.label,
+        emoji: globalRankInfo.emoji,
+        color: globalRankInfo.color,
+      };
+    }
+
+    return {
+      type: 'server' as const,
+      label: serverRole.name,
+      emoji: serverRole.icon,
+      color: serverRole.color,
+    };
+  };
+
   const loadAvailableRanks = async () => {
     try {
       const { data: ranks } = await supabase
@@ -509,25 +567,22 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                           {profileData.username}
                         </h2>
                         <div className="flex flex-wrap gap-2 mb-3">
-                          <span
-                            className="px-3 py-1 rounded-full text-sm font-semibold"
-                            style={getRankStyles(profileData.global_rank)}
-                          >
-                            {getRankDisplayInfo(profileData.global_rank).emoji} {getRankDisplayInfo(profileData.global_rank).label}
-                          </span>
-                          {profileData.server_role && (
-                            <span
-                              className="px-3 py-1 rounded-full text-sm font-semibold"
-                              style={{
-                                background: `${profileData.server_role.color}20`,
-                                color: profileData.server_role.color,
-                                border: `1px solid ${profileData.server_role.color}50`,
-                              }}
-                            >
-                              <span className="mr-1">{profileData.server_role.icon}</span>
-                              {profileData.server_role.name}
-                            </span>
-                          )}
+                          {(() => {
+                            const effectiveRole = getEffectiveRole();
+                            if (!effectiveRole) return null;
+                            return (
+                              <span
+                                className="px-3 py-1 rounded-full text-sm font-semibold"
+                                style={{
+                                  background: `${effectiveRole.color}20`,
+                                  color: effectiveRole.color,
+                                  border: `1px solid ${effectiveRole.color}50`,
+                                }}
+                              >
+                                {effectiveRole.emoji} {effectiveRole.label}
+                              </span>
+                            );
+                          })()}
                           {profileData.is_banned && (
                             <span
                               className="px-3 py-1 rounded-full text-sm font-semibold"
