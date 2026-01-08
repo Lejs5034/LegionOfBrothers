@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Crown, Shield } from 'lucide-react';
+import { X, Crown, Shield, Bug } from 'lucide-react';
+import { getRankOrder } from '../../utils/rankUtils';
 
 interface ServerRole {
   id: string;
@@ -38,6 +39,8 @@ export default function RoleManagementModal({
   const [availableRoles, setAvailableRoles] = useState<ServerRole[]>([]);
   const [currentRole, setCurrentRole] = useState<ServerRole | null>(null);
   const [assigningRole, setAssigningRole] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -78,6 +81,22 @@ export default function RoleManagementModal({
     setAssigningRole(true);
     setError('');
 
+    const currentUserAuthority = getRankOrder(currentUserRank);
+    const targetUserAuthority = getRankOrder(targetUser.global_rank);
+
+    const debugData = {
+      action: 'assign_server_role',
+      currentUserRank,
+      currentUserAuthority,
+      targetUserRank: targetUser.global_rank,
+      targetUserAuthority,
+      serverSlug,
+      roleId,
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log('[RoleManagement] Attempting role assignment:', debugData);
+
     try {
       const { data, error: rpcError } = await supabase.rpc('assign_server_role', {
         target_user_id: targetUser.id,
@@ -86,22 +105,28 @@ export default function RoleManagementModal({
       });
 
       if (rpcError) {
-        console.error('Error assigning role:', rpcError);
+        console.error('[RoleManagement] RPC Error:', rpcError);
+        setDebugInfo({ ...debugData, result: 'error', error: rpcError.message });
         setError(rpcError.message || 'Failed to assign role');
         setAssigningRole(false);
         return;
       }
 
       if (data && !data.success) {
+        console.error('[RoleManagement] Operation failed:', data);
+        setDebugInfo({ ...debugData, result: 'failed', data });
         setError(data.error || 'Failed to assign role');
         setAssigningRole(false);
         return;
       }
 
+      console.log('[RoleManagement] Success:', data);
+      setDebugInfo({ ...debugData, result: 'success', data });
       onSuccess?.();
       onClose();
     } catch (err) {
-      console.error('Error assigning role:', err);
+      console.error('[RoleManagement] Unexpected error:', err);
+      setDebugInfo({ ...debugData, result: 'exception', error: String(err) });
       setError('An unexpected error occurred');
     } finally {
       setAssigningRole(false);
@@ -178,6 +203,44 @@ export default function RoleManagementModal({
         >
           Manage {targetUser.username}
         </h2>
+
+        <button
+          onClick={() => setShowDebug(!showDebug)}
+          className="absolute top-4 right-12 p-1 rounded transition-colors"
+          style={{ color: 'var(--text-muted)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+          title="Toggle debug info"
+        >
+          <Bug size={16} />
+        </button>
+
+        {showDebug && (
+          <div
+            className="mb-4 p-3 rounded text-xs font-mono"
+            style={{
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              color: '#60a5fa',
+            }}
+          >
+            <div className="font-bold mb-2">Authority Debug Info</div>
+            <div>Current User: {currentUserRank} (authority: {getRankOrder(currentUserRank)})</div>
+            <div>Target User: {targetUser.global_rank} (authority: {getRankOrder(targetUser.global_rank)})</div>
+            <div>Can Manage: {getRankOrder(currentUserRank) >= getRankOrder(targetUser.global_rank) ? 'YES' : 'NO'}</div>
+            {debugInfo && (
+              <div className="mt-2 pt-2 border-t border-blue-500/30">
+                <div>Last Action: {debugInfo.result}</div>
+                {debugInfo.data?.debug && (
+                  <div className="mt-1">
+                    DB Response: caller_auth={debugInfo.data.debug.caller_authority},
+                    target_auth={debugInfo.data.debug.target_authority}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {error && (
           <div
