@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { getServerRoleConfig, RoleConfig } from '../../utils/displayRankUtils';
 import RoleManagementModal from '../RoleManagementModal/RoleManagementModal';
 
 interface MemberProfile {
@@ -8,10 +7,20 @@ interface MemberProfile {
   username: string;
   avatar_url?: string;
   global_rank: string;
+  role_id?: string;
+}
+
+interface ServerRole {
+  id: string;
+  name: string;
+  rank: number;
+  color: string;
+  icon: string;
+  role_key?: string;
 }
 
 interface RoleSection {
-  roleConfig: RoleConfig;
+  role: ServerRole;
   members: MemberProfile[];
 }
 
@@ -58,12 +67,24 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
 
       setServerName(server.name);
 
-      const serverRoleConfig = getServerRoleConfig(server.name);
+      const { data: roles, error: rolesError } = await supabase
+        .from('server_roles')
+        .select('id, name, rank, color, icon, role_key')
+        .eq('server_id', server.id)
+        .order('rank', { ascending: true });
+
+      if (rolesError) {
+        console.error('Error loading roles:', rolesError);
+        setError(`Failed to load roles: ${rolesError.message}`);
+        setLoading(false);
+        return;
+      }
 
       const { data: members, error: membersError } = await supabase
         .from('server_members')
         .select(`
           user_id,
+          role_id,
           profiles:user_id (
             id,
             username,
@@ -89,17 +110,18 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
             username: profile.username,
             avatar_url: profile.avatar_url,
             global_rank: profile.global_rank || 'user',
+            role_id: m.role_id,
           };
         })
         .filter((m): m is MemberProfile => m !== null);
 
-      const sections: RoleSection[] = serverRoleConfig.map(roleConfig => {
+      const sections: RoleSection[] = (roles || []).map(role => {
         const roleMembers = allMembers
-          .filter(m => m.global_rank === roleConfig.key)
+          .filter(m => m.role_id === role.id)
           .sort((a, b) => a.username.localeCompare(b.username));
 
         return {
-          roleConfig,
+          role,
           members: roleMembers,
         };
       });
@@ -153,6 +175,17 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
           event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
+        },
+        () => {
+          loadMembers();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'server_roles',
         },
         () => {
           loadMembers();
@@ -233,15 +266,15 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
       }}
     >
       <div className="flex-1 overflow-y-auto p-4">
-        {roleSections.map(({ roleConfig, members }, index) => (
-          <div key={roleConfig.key} className="mb-8">
+        {roleSections.map(({ role, members }, index) => (
+          <div key={role.id} className="mb-8">
             <div className="flex items-center gap-2 mb-3 px-2">
-              <span className="text-lg">{roleConfig.emoji}</span>
+              <span className="text-lg">{role.icon}</span>
               <h3
                 className="text-xs font-semibold uppercase tracking-wider"
-                style={{ color: roleConfig.color }}
+                style={{ color: role.color }}
               >
-                {roleConfig.label} — {members.length}
+                {role.name} — {members.length}
               </h3>
             </div>
             {members.length === 0 ? (
@@ -276,7 +309,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
                   </div>
                   <span
                     className="text-sm font-medium"
-                    style={{ color: roleConfig.color }}
+                    style={{ color: role.color }}
                   >
                     {member.username}
                   </span>
