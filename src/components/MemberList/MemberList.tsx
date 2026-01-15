@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { getRankDisplayInfo } from '../../utils/displayRankUtils';
 import RoleManagementModal from '../RoleManagementModal/RoleManagementModal';
 
 interface MemberProfile {
@@ -121,19 +120,8 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
           .filter(m => m.role_id === role.id)
           .sort((a, b) => a.username.localeCompare(b.username));
 
-        let displayRole = role;
-        if (role.role_key) {
-          const mappedInfo = getRankDisplayInfo(role.role_key);
-          displayRole = {
-            ...role,
-            icon: mappedInfo.emoji,
-            color: mappedInfo.color,
-            name: mappedInfo.label,
-          };
-        }
-
         return {
-          role: displayRole,
+          role,
           members: roleMembers,
         };
       });
