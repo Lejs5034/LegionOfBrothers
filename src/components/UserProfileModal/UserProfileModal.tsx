@@ -3,7 +3,7 @@ import { X, Shield, Award, TrendingUp, Calendar, Clock, Target, Zap, Ban, UserCo
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { getRankOrder } from '../../utils/rankUtils';
-import { getRankDisplayInfo } from '../../utils/displayRankUtils';
+import { getEffectiveDisplayRole } from '../../utils/displayRankUtils';
 import RoleManagementModal from '../RoleManagementModal/RoleManagementModal';
 
 interface ServerRole {
@@ -184,72 +184,6 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const getRankStyles = (globalRank: string) => {
-    const rankInfo = getRankDisplayInfo(globalRank);
-    return {
-      background: `${rankInfo.color}20`,
-      color: rankInfo.color,
-      border: `1px solid ${rankInfo.color}50`,
-    };
-  };
-
-  const getEffectiveRole = () => {
-    if (!profileData) return null;
-
-    const globalRankInfo = getRankDisplayInfo(profileData.global_rank);
-    const serverRole = profileData.server_role;
-
-    if (!serverRole) {
-      return {
-        type: 'global' as const,
-        label: globalRankInfo.label,
-        emoji: globalRankInfo.emoji,
-        color: globalRankInfo.color,
-      };
-    }
-
-    const normalizedGlobalLabel = globalRankInfo.label.toLowerCase().trim();
-    const normalizedServerLabel = serverRole.name.toLowerCase().trim();
-
-    if (normalizedGlobalLabel === normalizedServerLabel) {
-      return {
-        type: 'global' as const,
-        label: globalRankInfo.label,
-        emoji: globalRankInfo.emoji,
-        color: globalRankInfo.color,
-      };
-    }
-
-    const globalAuthority = getRankOrder(profileData.global_rank);
-    const serverRankKeys = ['the_head', 'app_developer', 'admin',
-                           'business_mastery_professor', 'crypto_trading_professor',
-                           'copywriting_professor', 'fitness_professor',
-                           'business_mentor', 'crypto_trading_mentor',
-                           'copywriting_mentor', 'coach'];
-
-    const matchingKey = serverRankKeys.find(key => {
-      const keyInfo = getRankDisplayInfo(key);
-      return keyInfo.label.toLowerCase().trim() === normalizedServerLabel;
-    });
-
-    const serverAuthority = matchingKey ? getRankOrder(matchingKey) : 10;
-
-    if (globalAuthority >= serverAuthority) {
-      return {
-        type: 'global' as const,
-        label: globalRankInfo.label,
-        emoji: globalRankInfo.emoji,
-        color: globalRankInfo.color,
-      };
-    }
-
-    return {
-      type: 'server' as const,
-      label: serverRole.name,
-      emoji: serverRole.icon,
-      color: serverRole.color,
-    };
-  };
 
   const loadAvailableRanks = async () => {
     try {
@@ -567,9 +501,11 @@ export default function UserProfileModal({ userId, serverId, onClose }: UserProf
                           {profileData.username}
                         </h2>
                         <div className="flex flex-wrap gap-2 mb-3">
-                          {(() => {
-                            const effectiveRole = getEffectiveRole();
-                            if (!effectiveRole) return null;
+                          {profileData && (() => {
+                            const effectiveRole = getEffectiveDisplayRole({
+                              global_rank: profileData.global_rank,
+                              server_role: profileData.server_role,
+                            });
                             return (
                               <span
                                 className="px-3 py-1 rounded-full text-sm font-semibold"

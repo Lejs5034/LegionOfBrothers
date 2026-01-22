@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import RoleManagementModal from '../RoleManagementModal/RoleManagementModal';
+import { getEffectiveDisplayRole } from '../../utils/displayRankUtils';
 
 interface MemberProfile {
   id: string;
@@ -19,8 +20,11 @@ interface ServerRole {
   role_key?: string;
 }
 
-interface RoleSection {
-  role: ServerRole;
+interface EffectiveRoleGroup {
+  label: string;
+  emoji: string;
+  color: string;
+  order: number;
   members: MemberProfile[];
 }
 
@@ -30,7 +34,7 @@ interface MemberListProps {
 }
 
 export default function MemberList({ serverId, isMobile = false }: MemberListProps) {
-  const [roleSections, setRoleSections] = useState<RoleSection[]>([]);
+  const [roleGroups, setRoleGroups] = useState<EffectiveRoleGroup[]>([]);
   const [serverName, setServerName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
@@ -41,7 +45,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
 
   const loadMembers = async () => {
     setLoading(true);
-    setRoleSections([]);
+    setRoleGroups([]);
     setError('');
 
     try {
@@ -115,18 +119,53 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
         })
         .filter((m): m is MemberProfile => m !== null);
 
-      const sections: RoleSection[] = (roles || []).map(role => {
-        const roleMembers = allMembers
-          .filter(m => m.role_id === role.id)
-          .sort((a, b) => a.username.localeCompare(b.username));
-
-        return {
-          role,
-          members: roleMembers,
-        };
+      const rolesMap = new Map<string, ServerRole>();
+      (roles || []).forEach(role => {
+        rolesMap.set(role.id, role);
       });
 
-      setRoleSections(sections);
+      const groupsMap = new Map<string, EffectiveRoleGroup>();
+
+      allMembers.forEach(member => {
+        const serverRole = member.role_id ? rolesMap.get(member.role_id) : null;
+        const effectiveRole = getEffectiveDisplayRole({
+          global_rank: member.global_rank,
+          server_role: serverRole || null,
+        });
+
+        const groupKey = `${effectiveRole.label}|${effectiveRole.color}`;
+
+        if (!groupsMap.has(groupKey)) {
+          let order = 999;
+          if (effectiveRole.label === 'The Head') order = 1;
+          else if (effectiveRole.label === 'App Developers') order = 2;
+          else if (effectiveRole.label === 'Admins') order = 3;
+          else if (effectiveRole.kind === 'server') order = 50;
+          else order = 100;
+
+          groupsMap.set(groupKey, {
+            label: effectiveRole.label,
+            emoji: effectiveRole.emoji,
+            color: effectiveRole.color,
+            order,
+            members: [],
+          });
+        }
+
+        groupsMap.get(groupKey)!.members.push(member);
+      });
+
+      const groups = Array.from(groupsMap.values())
+        .sort((a, b) => {
+          if (a.order !== b.order) return a.order - b.order;
+          return a.label.localeCompare(b.label);
+        })
+        .map(group => ({
+          ...group,
+          members: group.members.sort((a, b) => a.username.localeCompare(b.username)),
+        }));
+
+      setRoleGroups(groups);
     } catch (error) {
       console.error('Error loading members:', error);
     } finally {
@@ -243,7 +282,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
     );
   }
 
-  if (roleSections.length === 0 && !loading) {
+  if (roleGroups.length === 0 && !loading) {
     return (
       <div
         className={`flex flex-col items-center justify-center p-4 ${isMobile ? 'w-full' : 'w-60'}`}
@@ -252,7 +291,7 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
           borderLeft: isMobile ? 'none' : '1px solid var(--border)'
         }}
       >
-        <div className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>No roles configured</div>
+        <div className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>No members found</div>
       </div>
     );
   }
@@ -266,23 +305,23 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
       }}
     >
       <div className="flex-1 overflow-y-auto p-4">
-        {roleSections.map(({ role, members }, index) => (
-          <div key={role.id} className="mb-8">
+        {roleGroups.map((group, index) => (
+          <div key={`${group.label}-${group.color}`} className="mb-8">
             <div className="flex items-center gap-2 mb-3 px-2">
-              <span className="text-lg">{role.icon}</span>
+              <span className="text-lg">{group.emoji}</span>
               <h3
                 className="text-xs font-semibold uppercase tracking-wider"
-                style={{ color: role.color }}
+                style={{ color: group.color }}
               >
-                {role.name} — {members.length}
+                {group.label} — {group.members.length}
               </h3>
             </div>
-            {members.length === 0 ? (
+            {group.members.length === 0 ? (
               <div className="px-2 py-1 text-xs" style={{ color: 'var(--text-muted)' }}>
                 No members
               </div>
             ) : (
-              members.map(member => (
+              group.members.map(member => (
                 <div
                   key={member.id}
                   className="flex items-center gap-2 px-2 py-1.5 cursor-pointer transition-colors"
@@ -309,14 +348,14 @@ export default function MemberList({ serverId, isMobile = false }: MemberListPro
                   </div>
                   <span
                     className="text-sm font-medium"
-                    style={{ color: role.color }}
+                    style={{ color: group.color }}
                   >
                     {member.username}
                   </span>
                 </div>
               ))
             )}
-            {index < roleSections.length - 1 && (
+            {index < roleGroups.length - 1 && (
               <div className="mt-8 h-px" style={{ background: 'rgba(255, 255, 255, 0.04)' }} />
             )}
           </div>

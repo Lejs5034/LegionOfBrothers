@@ -133,3 +133,62 @@ export function getUserDisplayRankForServer(user: User, server: Server): Display
 export function getRankDisplayInfo(rankKey: string): DisplayRank {
   return RANK_LABELS[rankKey] || RANK_LABELS['user'];
 }
+
+export interface EffectiveDisplayRole {
+  kind: 'global' | 'server' | 'fallback';
+  label: string;
+  emoji: string;
+  color: string;
+}
+
+interface ServerRole {
+  name: string;
+  color: string;
+  icon: string;
+  rank?: number;
+}
+
+export function getEffectiveDisplayRole(params: {
+  global_rank?: string;
+  server_role?: ServerRole | null;
+}): EffectiveDisplayRole {
+  const { global_rank, server_role } = params;
+  const globalRank = global_rank || 'user';
+
+  if (globalRank === 'the_head' || globalRank === 'app_developer') {
+    const info = RANK_LABELS[globalRank];
+    return {
+      kind: 'global',
+      label: info.label,
+      emoji: info.emoji,
+      color: info.color,
+    };
+  }
+
+  if (globalRank === 'admin') {
+    const info = RANK_LABELS.admin;
+    return {
+      kind: 'global',
+      label: info.label,
+      emoji: info.emoji,
+      color: info.color,
+    };
+  }
+
+  if (server_role) {
+    return {
+      kind: 'server',
+      label: server_role.name,
+      emoji: server_role.icon,
+      color: server_role.color,
+    };
+  }
+
+  const fallbackInfo = RANK_LABELS[globalRank] || RANK_LABELS.user;
+  return {
+    kind: 'fallback',
+    label: fallbackInfo.label,
+    emoji: fallbackInfo.emoji,
+    color: fallbackInfo.color,
+  };
+}
