@@ -171,7 +171,7 @@ export default function RoleManagementModal({
 
   if (!isOpen) return null;
 
-  const canManageRoles = ['the_head', 'app_developer', 'admin'].includes(currentUserRank);
+  const canManageRoles = ['the_head', 'app_developer'].includes(currentUserRank);
 
   return (
     <div
