@@ -70,8 +70,7 @@ const Hero: React.FC = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2 }}
           >
-            Master the skills that define the future. Join a brotherhood of entrepreneurs,
-            traders, creators, and warriors building unstoppable legacies.
+            Master the skills that define the future. Join a brotherhood of warriors building unstoppable legacies.
           </motion.p>
 
           <motion.div 
