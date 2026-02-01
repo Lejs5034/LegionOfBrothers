@@ -1754,17 +1754,38 @@ export default function ChatPage() {
                 )}
               </nav>
 
-              <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div className="mt-auto p-3 flex items-center gap-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={username}
+                    className="size-9 rounded-full object-cover"
+                    style={{ border: '2px solid rgba(6, 182, 212, 0.3)' }}
+                  />
+                ) : (
+                  <div className="size-9 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: 'var(--accent-grad)' }}>
+                    {username.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 overflow-hidden">
+                  <div className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>{username || userEmail.split('@')[0]}</div>
+                  <div className="flex items-center space-x-1">
+                    <div className="size-2 rounded-full" style={{ background: '#10b981' }} />
+                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Online</div>
+                  </div>
+                </div>
                 <button
                   onClick={() => {
                     setShowSettings(true);
                     setShowMobileMenu(false);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+                  className="p-1 transition-colors duration-200"
+                  style={{ color: 'var(--text-muted)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                  title="Settings"
                 >
                   <Settings size={18} />
-                  <span className="font-medium">Settings</span>
                 </button>
               </div>
             </div>
