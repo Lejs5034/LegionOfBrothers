@@ -57,30 +57,34 @@ const Mission: React.FC = () => {
           >
             <div className="prose prose-xl text-gray-300 space-y-6">
               <p className="text-2xl md:text-3xl font-bold text-white leading-relaxed">
-                We forge the <span className="text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text">unstoppable few</span> who will define tomorrow.
+                We forge the <span className="text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text">unstoppable few</span> who will dominate all realms of human endeavor.
               </p>
-              
+
               <p className="text-lg leading-relaxed">
-                The Legion of Brothers isn't just a school—it's a brotherhood of high performers,
-                entrepreneurs, and visionaries who refuse to settle for mediocrity. We don't just teach skills;
-                we forge warriors equipped to dominate the future economy.
+                The Legion of Brothers isn't just a community—it's a brotherhood of top tier individuals and visionaries who overcome all obstacles with precision and strategy and refuse mediocrity. We don't just teach skills, we forge warriors equipped to dominate the future generations.
               </p>
-              
+
               <p className="text-lg leading-relaxed">
-                In a world of infinite distractions and shallow expertise, we provide deep mastery, 
-                unbreakable community, and the mindset to turn knowledge into empire.
+                In a world of infinite distractions and shallow expertise, we provide deep mastery of all components essential to your success along with an unbreakable community, and the mindset to turn knowledge into an empire.
               </p>
             </div>
 
-            <motion.div 
+            <motion.div
               className="p-6 bg-gradient-to-r from-cyan-500/10 to-purple-600/10 rounded-2xl border border-cyan-500/20"
               whileHover={{ scale: 1.02 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
               <h3 className="text-xl font-bold text-cyan-400 mb-3">OUR VISION</h3>
-              <p className="text-gray-300">
-                To build the largest community of high-performing individuals who leverage cutting-edge skills 
-                to create generational wealth and unstoppable personal brands.
+              <p className="text-gray-300 space-y-4">
+                <span className="block">
+                  To build the largest community of high-performing individuals who leverage cutting-edge skills to create a generational change on a large scale. Our goal is to maximize the best version of who you are meant to become. In doing so, this brotherhood will become an empire no man has ever witnessed. An empire of men who cannot be destroyed in any regard. We focus on the key fundamentals that expand upon making you resilient to overcome ANY situation you will encounter in your life.
+                </span>
+                <span className="block">
+                  At this time we do not specialize in making you financially rich. We specialize in something infinitely better. We specialize in making your character rich, something that can never be taken away from you once you achieve this powerful attribute.
+                </span>
+                <span className="block">
+                  As a brotherhood we all vow to look out for each other and uplift one another as we are all chasing the same goal. This is what will make us stand out from everyone. Join us and become part of the greatest community of men who have ever existed.
+                </span>
               </p>
             </motion.div>
           </motion.div>
