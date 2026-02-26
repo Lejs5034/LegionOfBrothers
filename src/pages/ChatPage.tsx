@@ -725,6 +725,17 @@ export default function ChatPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [messages, replyingTo]);
 
+  useEffect(() => {
+    if (showSettings) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showSettings]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -2118,12 +2129,29 @@ export default function ChatPage() {
       </aside>
 
       {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.7)' }} onClick={() => setShowSettings(false)}>
-          <div className="w-full max-w-2xl mx-4 rounded-lg shadow-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4"
+            style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setShowSettings(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: window.innerWidth < 768 ? 100 : 20, scale: window.innerWidth < 768 ? 1 : 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: window.innerWidth < 768 ? 100 : 20, scale: window.innerWidth < 768 ? 1 : 0.95 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="w-full max-w-full md:max-w-2xl rounded-t-2xl md:rounded-lg shadow-2xl overflow-hidden max-h-[92vh] md:max-h-[85vh] flex flex-col"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
             {/* Header */}
-            <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid var(--border)' }}>
-              <h2 className="text-2xl font-bold" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
+            <div className="flex items-center justify-between p-4 md:p-6 flex-shrink-0" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+              <h2 className="text-xl md:text-2xl font-bold" style={{ background: 'var(--accent-grad)', WebkitBackgroundClip: 'text', color: 'transparent', backgroundClip: 'text' }}>
                 Settings
               </h2>
               <button
@@ -2133,24 +2161,24 @@ export default function ChatPage() {
                 onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                <X size={24} />
+                <X size={20} className="md:size-6" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto flex-1">
               {/* Profile Header */}
-              <div className="flex items-center gap-4 pb-6" style={{ borderBottom: '1px solid var(--border)' }}>
-                <div className="relative">
+              <div className="flex items-center gap-3 md:gap-4 pb-4 md:pb-6" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="relative flex-shrink-0">
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
                       alt={username}
-                      className="size-20 rounded-full object-cover"
+                      className="size-16 md:size-20 rounded-full object-cover"
                       style={{ border: '3px solid rgba(6, 182, 212, 0.3)' }}
                     />
                   ) : (
-                    <div className="size-20 rounded-full flex items-center justify-center text-white font-bold text-2xl" style={{ background: 'var(--accent-grad)' }}>
+                    <div className="size-16 md:size-20 rounded-full flex items-center justify-center text-white font-bold text-xl md:text-2xl" style={{ background: 'var(--accent-grad)' }}>
                       {username.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -2163,7 +2191,7 @@ export default function ChatPage() {
                   />
                   <button
                     onClick={() => avatarFileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 p-2 rounded-full transition-all duration-200 shadow-lg"
+                    className="absolute bottom-0 right-0 p-1.5 md:p-2 rounded-full transition-all duration-200 shadow-lg"
                     style={{
                       background: 'rgba(6, 182, 212, 0.9)',
                       border: '2px solid var(--surface)',
@@ -2178,14 +2206,14 @@ export default function ChatPage() {
                     }}
                     title="Change profile picture"
                   >
-                    <Camera size={16} style={{ color: 'white' }} />
+                    <Camera size={14} className="md:size-4" style={{ color: 'white' }} />
                   </button>
                 </div>
-                <div>
-                  <div className="text-xl font-bold" style={{ color: 'var(--text)' }}>{username || userEmail.split('@')[0]}</div>
+                <div className="min-w-0">
+                  <div className="text-lg md:text-xl font-bold truncate" style={{ color: 'var(--text)' }}>{username || userEmail.split('@')[0]}</div>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="size-2 rounded-full" style={{ background: '#10b981' }} />
-                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Online</div>
+                    <div className="text-xs md:text-sm" style={{ color: 'var(--text-muted)' }}>Online</div>
                   </div>
                 </div>
               </div>
@@ -2370,9 +2398,10 @@ export default function ChatPage() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Avatar Upload Preview Modal */}
       {showAvatarUpload && (
